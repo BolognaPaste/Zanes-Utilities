@@ -4,12 +4,12 @@ const fs = require('fs/promises');
 const { existsSync } = require('fs');
 
 const CLIP = ['clipboard-read', 'clipboard-sanitized-write'];
+const ALLOW = [...CLIP, 'fullscreen'];   // 'fullscreen' is what lets <video> and the Jellyfin frame go fullscreen
 const EXTERNAL = /^(steam:|com\.epicgames\.launcher:|https?:)/i;
 const TEXT_OK = /\.(acf|item|vdf)$/i;          // only launcher manifests may be read as text
 const START = {
   'gca-steam': 'C:\\Program Files (x86)\\Steam',
-  'gca-epic': 'C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests',
-  'gca-custom': 'C:\\'
+  'gca-epic': 'C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests'
 };
 
 require('./driver-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0]);
@@ -28,6 +28,17 @@ ipcMain.handle('efs:pick', async (e, id) => {
     defaultPath: def && existsSync(def) ? def : undefined
   });
   return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];
+});
+
+// Native file picker for game executables: returns full paths, .exe files only.
+ipcMain.handle('efs:pickExe', async e => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const r = await dialog.showOpenDialog(win, {
+    title: 'Choose game executables',
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Programs', extensions: ['exe'] }]
+  });
+  return r.canceled ? [] : r.filePaths.filter(p => /\.exe$/i.test(p));
 });
 
 ipcMain.handle('efs:list', async (_e, p) => {
@@ -87,8 +98,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(CLIP.includes(perm)));
-  session.defaultSession.setPermissionCheckHandler((wc, perm) => CLIP.includes(perm));
+  session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(ALLOW.includes(perm)));
+  session.defaultSession.setPermissionCheckHandler((wc, perm) => ALLOW.includes(perm));
   createWindow();
 });
 

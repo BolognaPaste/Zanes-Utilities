@@ -23,6 +23,7 @@
       "shred-ui.js",
       "video-ipc.js",
       "video-ui.js",
+      "efs-shim.js",
       "index.html",
       "ps/*.ps1"
     ],
@@ -35,6 +36,18 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/ffmpeg-static/ffmpeg.exe",
+        "to": "ffmpeg.exe"
+      }
+    ]
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0"
   }
 }

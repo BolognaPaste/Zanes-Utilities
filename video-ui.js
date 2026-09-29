@@ -23,6 +23,8 @@
     return;
   }
 
+  const fixed = new Map();   // video path -> converted copy with playable audio
+  let fixing = false, offFix = null;
   let dir = getDir(), files = [], shown = [], cur = '', trunc = false, busy = false, err = '', mode = getMode();
 
   const fileUrl = p => {
@@ -196,6 +198,7 @@
   function play(i) {
     const f = shown[i];
     if (!f) return;
+    if (fixing) api.cancelFix();
     cur = f.path;
     const p = parts(f.rel), n = pretty(p.name);
     msg.hidden = true; ext.hidden = false;
@@ -204,7 +207,8 @@
     box.hidden = false;
     const art = headerSrc(f);
     if (art) vid.poster = fileUrl(art); else vid.removeAttribute('poster');
-    vid.src = fileUrl(f.path);
+    vid.muted = false; vid.volume = 1;
+    vid.src = fileUrl(fixed.get(f.path) || f.path);
     const pr = vid.play();
     if (pr && pr.catch) pr.catch(() => {});
     mark();
@@ -212,6 +216,7 @@
   }
 
   function stop() {
+    if (fixing) api.cancelFix();
     vid.pause();
     vid.removeAttribute('src');
     vid.removeAttribute('poster');
@@ -225,6 +230,62 @@
     msg.textContent = 'This file could not be played inside the app. Its format or codec may not be supported. Use "Open in default player" instead.';
     msg.hidden = false;
   });
+  function offerFix() {
+    msg.textContent = 'This video plays, but its audio format (often AC-3, E-AC-3, DTS or TrueHD) cannot be played inside the app, so there is no sound. ';
+    msg.hidden = false;
+    if (!api.fixAudio) { msg.append('Use "Open in default player" to hear it.'); return; }
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = 'Fix audio';
+    b.addEventListener('click', fixAudio);
+    msg.append(b);
+  }
+
+  async function fixAudio() {
+    const path = cur;
+    if (!path || fixing) return;
+    const resume = vid.currentTime;
+    fixing = true;
+    msg.textContent = 'Converting the audio (the picture is copied as is)\u2026 ';
+    const pb = document.createElement('progress'); pb.max = 100;
+    const pt = document.createElement('span'); pt.textContent = ' starting';
+    const cx = document.createElement('button'); cx.type = 'button'; cx.className = 'alt'; cx.textContent = 'Cancel';
+    cx.addEventListener('click', () => { cx.disabled = true; api.cancelFix(); });
+    msg.append(pb, pt, ' ', cx);
+    if (offFix) offFix();
+    offFix = api.onFix ? api.onFix(m => {
+      if (m && m.t === 'fix') { pb.value = m.pct; pt.textContent = ' ' + m.pct + '%'; }
+    }) : null;
+    let r;
+    try { r = await api.fixAudio(path); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+    if (offFix) { offFix(); offFix = null; }
+    fixing = false;
+    if (cur !== path) return;               // another video was chosen meanwhile
+    if (!r || !r.ok) {
+      msg.textContent = (r && r.error) || 'The audio could not be converted.';
+      return;
+    }
+    fixed.set(path, r.data);
+    msg.hidden = true;
+    vid.addEventListener('loadedmetadata', () => {
+      try { vid.currentTime = resume; } catch {}
+      const pr = vid.play(); if (pr && pr.catch) pr.catch(() => {});
+    }, { once: true });
+    vid.src = fileUrl(r.data);
+  }
+
+  // Chromium (inside Electron) cannot decode some audio formats, mainly AC-3/E-AC-3/DTS/TrueHD in
+  // MKV and MP4 files. The picture plays but nothing is heard. Detect that and say so.
+  let audioTimer = 0;
+  vid.addEventListener('playing', () => {
+    clearTimeout(audioTimer);
+    audioTimer = setTimeout(() => {
+      if (vid.paused || vid.ended || vid.muted || vid.volume === 0 || vid.currentTime < 1 || fixed.has(cur)) return;
+      if (typeof vid.webkitAudioDecodedByteCount === 'number' && vid.webkitAudioDecodedByteCount === 0) {
+        offerFix();
+      }
+    }, 2500);
+  });
+  vid.addEventListener('emptied', () => clearTimeout(audioTimer));
   vid.addEventListener('ended', () => {
     const i = shown.findIndex(f => f.path === cur);
     if (auto.checked && i >= 0 && i < shown.length - 1) play(i + 1);

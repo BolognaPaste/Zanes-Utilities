@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('efs', {
   pickDir: id => ipcRenderer.invoke('efs:pick', id),
+  pickExe: () => ipcRenderer.invoke('efs:pickExe'),
   list: p => ipcRenderer.invoke('efs:list', p),
   stat: p => ipcRenderer.invoke('efs:stat', p),
   text: p => ipcRenderer.invoke('efs:text', p)
@@ -41,5 +42,12 @@ contextBridge.exposeInMainWorld('localVideos', {
   pick: () => ipcRenderer.invoke('vid:pick'),
   scan: dir => ipcRenderer.invoke('vid:scan', dir),
   open: file => ipcRenderer.invoke('vid:open', file),
-  thumb: file => ipcRenderer.invoke('vid:thumb', file)
+  thumb: file => ipcRenderer.invoke('vid:thumb', file),
+  fixAudio: file => ipcRenderer.invoke('vid:fixaudio', file),
+  cancelFix: () => ipcRenderer.invoke('vid:fixcancel'),
+  onFix: cb => {
+    const h = (_e, m) => cb(m);
+    ipcRenderer.on('vid:progress', h);
+    return () => ipcRenderer.removeListener('vid:progress', h);
+  }
 });

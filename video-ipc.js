@@ -10,6 +10,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 
 const VIDEO = /\.(mp4|m4v|mkv|webm|mov|avi|wmv|flv|mpg|mpeg|ts|m2ts|ogv|3gp)$/i;
 const IMAGE = /\.(jpe?g|png|webp)$/i;
@@ -41,6 +42,26 @@ function findArt(images, base, single) {
   }
   return out;
 }
+
+// Finds the ffmpeg program. Looked for, in order: the ffmpeg-static npm package (unpacked from the
+// asar archive when packaged), ffmpeg.exe copied into the app's resources folder by the build, and
+// finally an ffmpeg.exe the user dropped into the app's data folder.
+// Returns { file } when found, otherwise { tried: [...] } so the error message can say what was checked.
+function findFfmpeg(app) {
+  const tried = [], cands = [];
+  const unpack = p => p.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
+  try { const p = require('ffmpeg-static'); if (p) cands.push(unpack(p)); else tried.push('ffmpeg-static (no binary for this platform)'); }
+  catch { tried.push('ffmpeg-static package (not installed: run npm install)'); }
+  cands.push(unpack(path.join(__dirname, 'node_modules', 'ffmpeg-static', 'ffmpeg.exe')));
+  if (process.resourcesPath) cands.push(path.join(process.resourcesPath, 'ffmpeg.exe'));
+  try { cands.push(path.join(app.getPath('userData'), 'ffmpeg.exe')); } catch {}
+  for (const c of cands) {
+    if (fs.existsSync(c)) return { file: c };
+    tried.push(c);
+  }
+  return { tried };
+}
+const toSec = t => { const m = /(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(t || ''); return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : 0; };
 
 async function walk(root) {
   const files = [];
@@ -83,6 +104,20 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
   let known = new Set();
   const failed = new Set();
   const cacheDir = () => path.join(app.getPath('userData'), 'video-thumbs');
+  const fixDir = () => path.join(app.getPath('userData'), 'video-audio-fixed');
+  const send = m => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send('vid:progress', m); };
+  let fixProc = null, fixCancelled = false;
+
+  // Converted copies are only a cache: remove the ones not touched for two weeks.
+  (async () => {
+    try {
+      const now = Date.now();
+      for (const n of await fsp.readdir(fixDir())) {
+        const f = path.join(fixDir(), n);
+        if (now - (await fsp.stat(f)).mtimeMs > 14 * 86400000) await fsp.unlink(f).catch(() => {});
+      }
+    } catch {}
+  })();
 
   ipcMain.handle('vid:pick', async () => {
     const r = await dialog.showOpenDialog(getWin(), { title: 'Choose a folder of videos', properties: ['openDirectory'] });
@@ -123,6 +158,60 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
       return { ok: false, error: String((e && e.message) || e) };
     }
   });
+
+  // Makes a copy of one video whose audio Chromium can play: the picture is copied untouched (fast),
+  // the sound is converted to AAC stereo by the bundled ffmpeg. The copy is cached and reused.
+  ipcMain.handle('vid:fixaudio', async (_e, file) => {
+    if (typeof file !== 'string' || !known.has(file)) return { ok: false, error: 'That file was not in the last scan.' };
+    if (fixProc) return { ok: false, error: 'Another audio conversion is already running.' };
+    const found = findFfmpeg(app), bin = found.file;
+    if (!bin) return { ok: false, error: 'ffmpeg was not found. Looked in: ' + found.tried.join('; ') };
+    let out, part;
+    try {
+      const st = await fsp.stat(file);
+      const key = crypto.createHash('sha1').update(file.toLowerCase() + '|' + st.size + '|' + Math.round(st.mtimeMs) + '|aac1').digest('hex');
+      out = path.join(fixDir(), key + '.mp4');
+      part = path.join(fixDir(), key + '.part');
+      if (fs.existsSync(out)) { const now = new Date(); await fsp.utimes(out, now, now).catch(() => {}); return { ok: true, data: out }; }
+      await fsp.mkdir(fixDir(), { recursive: true });
+    } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+
+    const args = ['-y', '-hide_banner', '-nostdin', '-loglevel', 'info', '-i', file,
+      '-map', '0:v:0', '-map', '0:a:0?', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ac', '2',
+      '-sn', '-dn', '-movflags', '+faststart', '-progress', 'pipe:1', '-nostats', '-f', 'mp4', part];
+    fixCancelled = false;
+    const r = await new Promise(resolve => {
+      const p = spawn(bin, args, { windowsHide: true });
+      fixProc = p;
+      let dur = 0, errTail = '', buf = '';
+      p.stderr.setEncoding('utf8'); p.stdout.setEncoding('utf8');
+      p.stderr.on('data', d => {
+        errTail = (errTail + d).slice(-2000);
+        if (!dur) { const m = /Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)/.exec(errTail); if (m) dur = toSec(m[1]); }
+      });
+      p.stdout.on('data', d => {
+        buf += d;
+        const lines = buf.split(/\r?\n/); buf = lines.pop();
+        for (const l of lines) {
+          const m = /^out_time_(?:us|ms)=(\d+)/.exec(l);
+          if (m && dur) send({ t: 'fix', pct: Math.max(0, Math.min(99, Math.round(+m[1] / 1e6 / dur * 100))) });
+        }
+      });
+      p.on('error', e => resolve({ code: -1, err: e.message }));
+      p.on('close', code => resolve({ code, err: errTail }));
+    });
+    fixProc = null;
+    if (r.code === 0 && !fixCancelled) {
+      try { await fsp.rename(part, out); return { ok: true, data: out }; }
+      catch (e) { r.err = String((e && e.message) || e); }
+    }
+    try { await fsp.unlink(part); } catch {}
+    if (fixCancelled) return { ok: false, cancelled: true, error: 'Conversion cancelled.' };
+    const last = String(r.err || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).pop() || '';
+    return { ok: false, error: 'The audio could not be converted' + (last ? ': ' + last.slice(0, 200) : '.') };
+  });
+
+  ipcMain.handle('vid:fixcancel', () => { fixCancelled = true; if (fixProc) fixProc.kill(); return true; });
 
   // Opens one video in the default player. Only video file types are allowed, never programs.
   ipcMain.handle('vid:open', async (_e, file) => {

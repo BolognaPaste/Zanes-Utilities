@@ -312,8 +312,9 @@ button[disabled]{cursor:default}
 <p id="afm" class="fx" role="status"></p>
 <div class="bar"><button type="button" class="alt" id="afs2">Add another Steam folder…</button><button type="button" class="alt" id="afe2">Add another Epic folder…</button><button type="button" class="alt" id="aff">Forget saved folders</button></div>
 <p class="fx">A web page can only read folders you choose, so the first time you will be asked to pick each one. Steam: <code>C:\Program Files (x86)\Steam\steamapps</code> (or your Steam folder). Epic: <code>C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests</code>. Your browser then remembers them (Chrome or Edge; it may ask permission again after a restart). If you keep games on more than one drive, use "Add another Steam folder" for each library. Play starts a game through Steam or the Epic Games Launcher, which must be installed and signed in.</p>
-<p class="fx"><b>Custom folder:</b> pick a folder that holds your games (one subfolder per game, or loose .exe files). The library finds each game's main .exe, ignoring installers and crash handlers, and re-scans it every time you open this page, adding new games and dropping removed ones. A web page cannot start a program, so Play gives you a small launcher (.bat) to open; enter the folder's full path when asked so it can be built.</p>
-<div class="bar"><button type="button" id="afc">Scan a custom folder</button><button type="button" class="alt" id="afc2">Add another custom folder…</button></div>
+<p class="fx"><b>Other games:</b> add a game yourself by choosing its .exe file (you can pick several at once). Nothing is scanned or re-checked; the library only lists the files you add. A web page cannot start a program, so Play gives you a small launcher (.bat) to open.</p>
+<div class="bar"><button type="button" id="afx">Add game .exe files…</button></div>
+<input type="file" id="afxf" accept=".exe" multiple hidden>
 <details id="lman"><summary>Choose files manually instead</summary>
 <div class="src">
 <label class="drop sm"><input type="file" id="fs" multiple accept=".acf"><b>Load Steam games</b><span>Select the appmanifest_*.acf files in your steamapps folder<br><code>C:\Program Files (x86)\Steam\steamapps</code></span></label>
@@ -658,13 +659,13 @@ function lrender(msg){
  homeRender();
  const m=$('#gm');m.hidden=!msg;m.textContent=msg||'';
  const cols=[...new Set(lib.flatMap(g=>g.cols||[]))].sort(),n=s=>lib.filter(x=>x.store===s).length;
- const fo=[['all','All Games'],['fav','Favorites'],['Steam','Steam'],['Epic','Epic Games'],['Custom','Custom folders'],...cols.map(c=>['c:'+c,c])].filter(o=>!['Steam','Epic','Custom'].includes(o[0])||n(o[0]));
+ const fo=[['all','All Games'],['fav','Favorites'],['Steam','Steam'],['Epic','Epic Games'],['Custom','Added manually'],...cols.map(c=>['c:'+c,c])].filter(o=>!['Steam','Epic','Custom'].includes(o[0])||n(o[0]));
  if(!fo.some(o=>o[0]===filt))filt='all';
  $('#gf').innerHTML=fo.map(o=>'<option value="'+esc(o[0])+'"'+(o[0]===filt?' selected':'')+'>'+esc(o[1])+'</option>').join('');
  const v=visible();
  $('#gc').textContent='('+v.length+')';
  $('#gb').hidden=!lib.length;
-  $('#gl').innerHTML=v.length?v.map(tile).join(''):(lib.length?'<p class="fx">No games match.</p>':'<div class="empty"><b>No games loaded</b><span class="fx">Use the "Add games" menu above to find your installed Steam and Epic games, or to scan a custom folder for game .exe files.</span></div>');
+  $('#gl').innerHTML=v.length?v.map(tile).join(''):(lib.length?'<p class="fx">No games match.</p>':'<div class="empty"><b>No games loaded</b><span class="fx">Use the "Add games" menu above to find your installed Steam and Epic games, or to add game .exe files yourself.</span></div>');
 }
 /* Game info lookup: RAWG (rawg.io) supports browser requests, works for Steam and Epic games by name */
 const RK='gca-rawg-key';
@@ -719,7 +720,7 @@ function openMenu(x,px,py,kb){
  const cols=[...new Set(lib.flatMap(g=>g.cols||[]))].sort(),mine=x.cols||[],cm=$('#cm');
  const add=cols.filter(c=>!mine.includes(c)).map(c=>mi('addc',c,{v:c})).join('')+mi('newc','New collection…');
  const rem=mine.map(c=>mi('rmc',c,{v:c})).join('')||'<span class="mi off">Not in any collection</span>';
- const man=mi('copy',x.store==='Steam'?'Copy install folder name':x.store==='Custom'?'Copy executable path':'Copy install path')+(x.app?mi('store','Open Steam store page')+mi('unin','Uninstall…'):'')+mi('del','Remove from this library');
+ const man=mi('copy',x.store==='Steam'?'Copy install folder name':x.store==='Custom'?'Copy executable path':'Copy install path')+(x.store==='Custom'?mi('setexe','Set executable path…'):'')+(x.app?mi('store','Open Steam store page')+mi('unin','Uninstall…'):'')+mi('del','Remove from this library');
  cm.innerHTML=(x.store==='Custom'?mi('play','⬇  Get launcher (.bat)',{k:'play'}):mi('play','▶  Play',{k:'play',d:!lu(x)}))+mi('fav',x.fav?'Remove from Favorites':'Add to Favorites')+smn('Add to',add)+smn('Remove from',rem)+smn('Manage',man)+'<hr>'+mi('props','Properties…');
  cm.hidden=false;
  const w=cm.offsetWidth,h=cm.offsetHeight,l=Math.max(4,Math.min(px,innerWidth-w-8));
@@ -730,13 +731,13 @@ function openMenu(x,px,py,kb){
 function props(x){
  const a=arts(x),bn=x.app?SC+x.app+'/header.jpg':x.img||'',lg=x.app?SC+x.app+'/logo.png':'';
  const head=bn?'<div class="pb"><img class="bn" alt="" src="'+esc(bn)+'" onerror="'+(x.img&&x.app?"this.onerror=null;this.src=this.dataset.f":"this.remove()")+'" data-f="'+esc(x.img||'')+'">'+(lg?'<img class="lg" alt="" src="'+esc(lg)+'" onerror="this.remove()">':'')+'</div>':'';
- const r=[['Name',x.name],x.dev&&['Developer',x.dev],x.gen&&['Genres',x.gen],x.rel&&['Released',x.rel],x.mc&&['Metacritic',x.mc],['Store',x.store==='Epic'?'Epic Games':x.store==='Custom'?'Custom folder':'Steam'],x.app&&['Steam app ID',x.app],x.exe&&['Main executable',x.exe.replace(/\//g,'\\')],x.exes&&x.exes.length&&['Other executables',x.exes.map(e=>e.replace(/\//g,'\\')).join(', ')],['Install folder',x.dir||'-'],['Size on disk',gb(x.size)||'-'],x.upd&&['Last updated',new Date(x.upd*1000).toLocaleString()],x.ver&&['Version',x.ver],['Collections',(x.cols||[]).join(', ')||'None'],['Favorite',x.fav?'Yes':'No']].filter(Boolean);
+ const r=[['Name',x.name],x.dev&&['Developer',x.dev],x.gen&&['Genres',x.gen],x.rel&&['Released',x.rel],x.mc&&['Metacritic',x.mc],['Store',x.store==='Epic'?'Epic Games':x.store==='Custom'?'Added manually':'Steam'],x.app&&['Steam app ID',x.app],x.exe&&['Main executable',x.exe.replace(/\//g,'\\')],x.exes&&x.exes.length&&['Other executables',x.exes.map(e=>e.replace(/\//g,'\\')).join(', ')],['Install folder',x.dir||'-'],['Size on disk',gb(x.size)||'-'],x.upd&&['Last updated',new Date(x.upd*1000).toLocaleString()],x.ver&&['Version',x.ver],['Collections',(x.cols||[]).join(', ')||'None'],['Favorite',x.fav?'Yes':'No']].filter(Boolean);
  dialog('Properties',head+(x.desc?'<p class="pd">'+esc(x.desc)+'</p>':'')+'<div class="tw"><table>'+r.map(([k,v])=>'<tr><th>'+esc(k)+'</th><td>'+esc(v)+'</td></tr>').join('')+'</table></div><div class="bar"><button type="button" data-x>Close</button></div>');
 }
 function act(a,x,v){
  if(!x)return;
  const go=u=>{const l=document.createElement('a');l.href=u;document.body.append(l);l.click();l.remove()};
- if(a==='play'){if(x.store==='Custom'){if(x.path)mkbat(x);else setPath(x.root)}else{const u=lu(x);if(u)go(u)}}
+ if(a==='play'){if(x.store==='Custom'){if(x.path)mkbat(x);else setExe(x,1)}else{const u=lu(x);if(u)go(u)}}
  else if(a==='fav'){x.fav=!x.fav;save()}
  else if(a==='addc'){x.cols=x.cols||[];if(!x.cols.includes(v))x.cols.push(v);save()}
  else if(a==='rmc'){x.cols=(x.cols||[]).filter(c=>c!==v);save()}
@@ -750,6 +751,7 @@ function act(a,x,v){
  else if(a==='unin')go('steam://uninstall/'+x.app);
  else if(a==='del'){lib=lib.filter(g=>g!==x);save()}
  else if(a==='props')props(x);
+ else if(a==='setexe')setExe(x);
 }
 const gl=$('#gl'),tg=e=>{const t=e.target.closest('.t');return t?lib.find(g=>g.id===t.dataset.id):null};
 gl.addEventListener('contextmenu',e=>{const x=tg(e);if(!x)return;e.preventDefault();const r=e.target.closest('.t').getBoundingClientRect(),kb=!e.clientX&&!e.clientY;openMenu(x,kb?r.left+r.width/2:e.clientX,kb?r.top+r.height/2:e.clientY,kb)});
@@ -828,75 +830,54 @@ async function findGames(store,o={}){
  const ex=[...new Set(libs)];
  am('Found '+found.length+' '+store+' game'+(found.length===1?'':'s')+' in '+good+' folder'+(good===1?'':'s')+'.'+(store==='Steam'&&ex.length>good?' Steam lists '+ex.length+' library folders ('+ex.join(', ')+'); use "Add another Steam folder" to include the rest.':''));
 }
-/* Custom folders: auto-scan for game .exe files. A page cannot start programs, so Play builds a .bat launcher. */
-const XSKIP=/^(unins\w*|uninstall\w*|setup\w*|vc_?redist[\w.-]*|dxsetup|dxwebsetup|dotnet[\w.-]*|crashpad_handler|crash(pad|report|handler)\w*|unitycrashhandler\w*|\w*prereq\w*|beservice\w*|easyanticheat\w*|notification_helper|createdump|windowsdesktop-runtime[\w.-]*)\.exe$/i;
-const XDIR=/^(_?commonredist|_?redist\w*|directx|vcredist|dotnet|__installer|installers?|prerequisites?|engine|\$recycle\.bin|system volume information)$/i;
+/* Custom games: .exe files added by hand. A page cannot start programs, so Play builds a .bat launcher. */
 const tidy=n=>{let t=n.replace(/_+/g,' ').replace(/[ .-]v?\d+(\.\d+)+$/i,'');if(!/\s/.test(t)&&(t.match(/\./g)||[]).length>0)t=t.replace(/\./g,' ');return t.replace(/\s+/g,' ').trim()||n};
-const cpath=(rp,exe)=>rp?rp.replace(/[\\/]+$/,'')+'\\'+exe.replace(/\//g,'\\'):'';
-const cdir=(rp,sub)=>rp?rp.replace(/[\\/]+$/,'')+(sub?'\\'+sub:''):sub;
-async function exesIn(dir,rel,depth,cap){
- const out=[];
- for await(const[n,e]of dir.entries()){
-  if(cap.n--<=0)break;
-  if(e.kind==='file'){if(/\.exe$/i.test(n)&&!XSKIP.test(n))out.push({n,rel:rel+n,e})}
-  else if(depth>0&&!XDIR.test(n)&&n[0]!=='.'){try{out.push(...await exesIn(e,rel+n+'/',depth-1,cap))}catch(x){}}
+const exeName=p=>p.split(/[\\/]/).pop();
+const exeDir=p=>/[\\/]/.test(p)?p.replace(/[\\/][^\\/]*$/,''):'';
+// Desktop app: native dialog that returns full paths. Plain browser: a file input, which only gives names.
+async function pickExes(){
+ if(window.efs&&typeof window.efs.pickExe==='function'){
+  const ps=await window.efs.pickExe();
+  return Promise.all((ps||[]).map(async p=>{let st=null;try{st=await window.efs.stat(p)}catch(e){}return{path:p,size:st?st.size:0,mtime:st?st.mtimeMs:0}}));
  }
- return out;
+ return new Promise(res=>{
+  const i=$('#afxf');
+  i.onchange=()=>{const f=[...i.files];i.value='';res(f.map(x=>({path:'',name:x.name,mtime:x.lastModified})))};
+  i.oncancel=()=>res([]);
+  i.click();
+ });
 }
-async function bestExe(list,name){
- const w=nn(name),info=[];
- for(const x of list.slice(0,80)){try{const f=await x.e.getFile(),m=nn(x.n.replace(/\.exe$/i,''));info.push({rel:x.rel,size:f.size,mod:f.lastModified,d:x.rel.split('/').length,s:m===w?2:(m.length>2&&w&&(m.includes(w)||w.includes(m))?1:0)})}catch(e){}}
- if(!info.length)return null;
- info.sort((a,b)=>b.s-a.s||b.size-a.size||a.d-b.d);
- return{best:info[0],others:info.slice(1,6).map(i=>i.rel)};
-}
-async function scanCustom(h,rp){
- const games=[],loose=[];
- const mk=(sub,name,b)=>{const exe=(sub?sub+'/':'')+b.best.rel;return{store:'Custom',id:'x:'+h.name+'/'+(sub||name),root:h.name,sub,name:tidy(name),dir:cdir(rp,sub),size:0,upd:Math.round(b.best.mod/1000),exe,exes:b.others.map(o=>(sub?sub+'/':'')+o),path:cpath(rp,exe)}};
- for await(const[n,e]of h.entries()){
-  if(e.kind==='directory'){
-   if(XDIR.test(n)||n[0]==='.')continue;
-   try{const b=await bestExe(await exesIn(e,'',3,{n:4000}),n);if(b)games.push(mk(n,n,b))}catch(x){}
-  }else if(/\.exe$/i.test(n)&&!XSKIP.test(n))loose.push([n,e]);
+async function addExes(){
+ let got;
+ try{got=await pickExes()}catch(e){am('Could not open the file picker.');return}
+ const seen=new Set(),rows=[];
+ for(const g of got||[]){
+  const file=exeName(g.path||g.name||'');
+  if(!/\.exe$/i.test(file))continue;
+  const key=(g.path||file).toLowerCase();
+  if(seen.has(key))continue;
+  seen.add(key);rows.push(Object.assign({},g,{file}));
  }
- if(!games.length&&!loose.length){const b=await bestExe(await exesIn(h,'',3,{n:4000}),h.name);if(b)games.push(mk('',h.name,b))}
- else for(const[n,e]of loose){try{const f=await e.getFile();games.push(mk('',n.replace(/\.exe$/i,''),{best:{rel:n,mod:f.lastModified},others:[]}))}catch(x){}}
- return games;
+ if(!rows.length){am('');return}
+ dialog('Add games','<p class="fx">Name each game as you want it to appear in the library.'+(rows.some(r=>!r.path)?' Your browser does not reveal file locations, so you will be asked for each game\'s full path the first time you press Play.':'')+'</p><div style="max-height:50vh;overflow:auto">'+
+  rows.map((r,i)=>'<p class="fx" style="margin:10px 0 4px;word-break:break-all">'+esc(r.path||r.file)+'</p><input type="text" data-r="'+i+'" maxlength="80" autocomplete="off" aria-label="Name for '+esc(r.file)+'" value="'+esc(tidy(r.file.replace(/\.exe$/i,'')))+'">').join('')+
+  '</div><div class="bar"><button type="button" id="axo">Add '+rows.length+' game'+(rows.length===1?'':'s')+'</button><button type="button" class="alt" data-x>Cancel</button></div>');
+ const ins=[...document.querySelectorAll('#dl [data-r]')];
+ const ok=()=>{
+  const games=rows.map((r,i)=>({store:'Custom',id:'x:'+(r.path||r.file).toLowerCase(),name:(ins[i].value||'').trim()||tidy(r.file.replace(/\.exe$/i,'')),dir:exeDir(r.path||''),size:0,upd:r.mtime?Math.round(r.mtime/1000):0,exe:r.file,path:r.path||''}));
+  closeDlg();mergeGames(games);
+  toast('Added '+games.length+' game'+(games.length===1?'':'s'));am('Added '+games.length+' game'+(games.length===1?'':'s')+' to the library.');
+ };
+ $('#axo').onclick=ok;ins.forEach(i=>{i.onkeydown=e=>{if(e.key==='Enter')ok()}});
 }
-async function findCustom(o={}){
- if(!canDir()){if(o.ask)am(noDir());return}
- const hs=await hget('Custom');let found=[],good=0;const okRoots=new Set();pend.delete('Custom');
- if(!o.add)for(const s of hs){
-  if(!await ensure(s.h,o.ask)){pend.add('Custom');continue}
-  try{found=found.concat(await scanCustom(s.h,s.path));okRoots.add(s.h.name);good++}catch(e){pend.add('Custom')}
- }
- let fresh=null;
- if(o.ask&&!o.noPick&&(o.add||!good)){
-  am('Choose the folder that contains your games.');
-  try{
-   const h=await window.showDirectoryPicker({id:'gca-custom',mode:'read'});
-   found=found.concat(await scanCustom(h,''));okRoots.add(h.name);
-   let dup=false;for(const s of hs){try{if(await s.h.isSameEntry(h))dup=true}catch(e){}}
-   if(!dup){hs.push({h,path:''});await hput('Custom',hs);good++;fresh=h.name}
-  }catch(e){am(e.name==='AbortError'?'':'Your browser would not open that folder ('+e.name+').');return}
- }
- if(!good&&!found.length){if(o.ask)am('No saved custom folder could be read. Use "Add another custom folder" to pick it again.');return}
- const seen=new Set();found=found.filter(g=>!seen.has(g.id)&&seen.add(g.id));
- const ids=new Set(found.map(g=>g.id));
- lib=lib.filter(x=>x.store!=='Custom'||!okRoots.has(x.root)||ids.has(x.id));
- if(!found.length){lsave();lrender();am('No games with .exe files were found in '+(good===1?'that folder':'those folders')+'.');return}
- mergeGames(found);toast('Found '+found.length+' custom game'+(found.length===1?'':'s'));
- am('Found '+found.length+' game'+(found.length===1?'':'s')+' in '+good+' custom folder'+(good===1?'':'s')+'.');
- if(fresh){const g=lib.find(x=>x.root===fresh);if(g)setPath(fresh)}
-}
-function setPath(root){
- const cur=(lib.find(x=>x.root===root&&x.path)||{}).path||'';
- dialog('Folder location','<p class="fx">Optional. Enter the full Windows path of the folder "'+esc(root)+'" (for example D:\\Games). Browsers cannot read it from the folder picker, and launchers need it to find each game. Leave it blank to skip.</p><input type="text" id="dpth" placeholder="D:\\Games" aria-label="Folder path" autocomplete="off" spellcheck="false" value="'+esc(cur?cur.replace(/\\[^\\]*$/,''):'')+'"><div class="bar"><button type="button" id="dpo">Save</button><button type="button" class="alt" data-x>Skip</button></div>');
- const go=async()=>{
-  const v=$('#dpth').value.trim();closeDlg();
-  const hs=await hget('Custom');for(const s of hs)if(s.h.name===root)s.path=v;await hput('Custom',hs);
-  for(const x of lib)if(x.store==='Custom'&&x.root===root){x.dir=cdir(v,x.sub);x.path=cpath(v,x.exe)}
-  save();
+// Asks for the full Windows path of one game's .exe. play=1 builds the launcher right after saving.
+function setExe(x,play){
+ dialog('Game location','<p class="fx">Enter the full Windows path of the .exe for "'+esc(x.name)+'" (for example D:\\Games\\MyGame\\game.exe). A browser cannot read it from the file picker, and the launcher needs it to start the game.</p><input type="text" id="dpth" placeholder="D:\\Games\\MyGame\\game.exe" aria-label="Full path of the .exe" autocomplete="off" spellcheck="false" value="'+esc(x.path||'')+'"><div class="bar"><button type="button" id="dpo">Save</button><button type="button" class="alt" data-x>Cancel</button></div>');
+ const go=()=>{
+  const v=$('#dpth').value.trim().replace(/^"(.*)"$/,'$1');
+  if(!/^([a-z]:[\\/]|\\\\)/i.test(v)||!/\.exe$/i.test(v)||v.includes('"')){toast('Enter a full path that ends in .exe');return}
+  closeDlg();x.path=v;x.exe=exeName(v);x.dir=exeDir(v);save();
+  if(play)mkbat(x);
  };
  $('#dpo').onclick=go;$('#dpth').onkeydown=e=>{if(e.key==='Enter')go()};
 }
@@ -906,15 +887,14 @@ function mkbat(x){
  a.href=u;a.download=(x.name.replace(/[\\/:*?"<>|]+/g,'').trim()||'game')+'.bat';document.body.append(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(u),4000);toast('Open the downloaded launcher to start the game');
 }
-$('#afc').onclick=()=>findCustom({ask:1});
-$('#afc2').onclick=()=>findCustom({ask:1,add:1});
+$('#afx').onclick=addExes;
 $('#afs').onclick=()=>findGames('Steam',{ask:1});
 $('#afe').onclick=()=>findGames('Epic',{ask:1});
 $('#afs2').onclick=()=>findGames('Steam',{ask:1,add:1});
 $('#afe2').onclick=()=>findGames('Epic',{ask:1,add:1});
-$('#aff').onclick=async()=>{await hput('Steam',[]);await hput('Epic',[]);await hput('Custom',[]);am('Saved folders cleared.')};
-(async()=>{if(!canDir()){const m=$('#gm');m.textContent=noDir();m.hidden=false;return}for(const st of['Steam','Epic']){if((await hget(st)).length)await findGames(st)}if((await hget('Custom')).length)await findCustom();lpend()})();
-$('#gpb').onclick=async()=>{for(const st of[...pend]){if(st==='Custom')await findCustom({ask:1,noPick:1});else await findGames(st,{ask:1,noPick:1})}lpend()};
+$('#aff').onclick=async()=>{await hput('Steam',[]);await hput('Epic',[]);am('Saved folders cleared.')};
+(async()=>{if(!canDir()){const m=$('#gm');m.textContent=noDir();m.hidden=false;return}for(const st of['Steam','Epic']){if((await hget(st)).length)await findGames(st)}if((await hget('Custom')).length)await hput('Custom',[]);lpend()})();
+$('#gpb').onclick=async()=>{for(const st of[...pend])await findGames(st,{ask:1,noPick:1});lpend()};
 $('#hcmp').onclick=cmp;
 $('#hd').onclick=()=>{const ids=new Set([...document.querySelectorAll('#hl input:checked')].map(i=>i.value));hsave(hload().filter(x=>!ids.has(x.id)));hrender()};
 let cf;$('#hx').onclick=e=>{const b=e.target;if(b.dataset.a){hsave([]);delete b.dataset.a;b.textContent='Clear all';clearTimeout(cf);hrender()}else{b.dataset.a=1;b.textContent='Click again to confirm';cf=setTimeout(()=>{delete b.dataset.a;b.textContent='Clear all'},4000)}};
