@@ -21,6 +21,8 @@
       "vendor-ui.js",
       "shred-ipc.js",
       "shred-ui.js",
+      "video-ipc.js",
+      "video-ui.js",
       "index.html",
       "ps/*.ps1"
     ],

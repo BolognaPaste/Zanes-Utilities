@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, session, ipcMain, dialog, shell, net } = require('electron');
+const { app, BrowserWindow, Menu, session, ipcMain, dialog, shell, net, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 const { existsSync } = require('fs');
@@ -15,6 +15,7 @@ const START = {
 require('./driver-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0]);
 require('./vendor-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { app, net, shell });
 require('./shred-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { dialog });
+require('./video-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { dialog, shell, app, nativeImage });
 
 const okPath = p => typeof p === 'string' && path.isAbsolute(p);
 

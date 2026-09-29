@@ -36,3 +36,10 @@ contextBridge.exposeInMainWorld('shredder', {
     return () => ipcRenderer.removeListener('shr:progress', h);
   }
 });
+
+contextBridge.exposeInMainWorld('localVideos', {
+  pick: () => ipcRenderer.invoke('vid:pick'),
+  scan: dir => ipcRenderer.invoke('vid:scan', dir),
+  open: file => ipcRenderer.invoke('vid:open', file),
+  thumb: file => ipcRenderer.invoke('vid:thumb', file)
+});

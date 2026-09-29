@@ -240,6 +240,32 @@ button[disabled]{cursor:default}
 .gq .fb{padding:4px;font-size:.7rem;line-height:1.2;word-break:break-word}
 .gq:hover,.gq:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 .hc .tx.hx{width:100%;margin:0;border:0;border-radius:0;background:none;color:var(--fg);text-align:left;cursor:pointer;padding:12px 14px 14px}
+
+/* Local videos (Media player, next to the server address form) */
+#lv{margin-top:28px;max-width:860px}#lv h2{font-size:1.1rem;margin:0 0 6px;word-break:normal}
+.lvp{background:#000;border-radius:6px;overflow:hidden;margin:14px 0}
+.lvp video{display:block;width:100%;max-height:70vh;background:#000}
+.lvp .jpi label{color:#dfe4ea;font-size:.9rem;white-space:nowrap}
+.lvp .jpi button[disabled]{opacity:.4;cursor:default}
+#lv-list{max-height:60vh;overflow-y:auto}
+.lvi{display:flex;width:100%;margin:0;text-align:left;background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:4px;padding:0;overflow:hidden}
+.lvi:hover{border-color:var(--acc)}
+.lvi[aria-current]{border-color:var(--acc);box-shadow:inset 0 -4px 0 var(--acc)}
+.lvh{position:relative;display:block;flex:none;aspect-ratio:16/9;background:#0b1015;overflow:hidden}
+.lvh.ph{display:flex;align-items:center;justify-content:center;background:var(--tint,#26323d)}
+.lvh .main{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.lvh .main.poster{object-fit:contain}
+.lvh .ini{color:#fff;opacity:.85;font-size:1.9rem;font-weight:600;letter-spacing:.04em}
+.lvh .lvlogo{position:absolute;left:8px;bottom:8px;max-width:55%;max-height:40%;object-fit:contain;filter:drop-shadow(0 1px 3px rgba(0,0,0,.85))}
+.lvh .sz{position:absolute;right:6px;top:6px;background:rgba(0,0,0,.68);color:#fff;font-size:.75rem;line-height:1.5;padding:0 6px;border-radius:3px}
+.lvt{display:block;min-width:0;padding:8px 10px}
+.lvt b{word-break:break-word}.lvt .yr{margin-left:6px;color:var(--mut);font-size:.85rem}
+.lvt small{display:block;color:var(--mut);word-break:break-all}
+#lv-list.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;align-content:start}
+#lv-list.cards .lvi{flex-direction:column}
+#lv-list.cards .lvh{width:100%}
+#lv-list.rows .lvi{align-items:center;gap:12px;margin:0 0 6px}
+#lv-list.rows .lvh{width:128px}
 </style>
 </head>
 <body>
@@ -314,6 +340,20 @@ button[disabled]{cursor:default}
 <p id="jlm" class="jerr" role="alert" hidden></p>
 <button type="submit" id="jgo">Connect</button>
 </form>
+<section id="lv" aria-labelledby="lv-h">
+<h2 id="lv-h">Local videos</h2>
+<p class="fx">Play video files stored on this PC. Choose a folder and every video inside it, including its subfolders, is listed below.</p>
+<p id="lv-na" class="err" hidden>Local videos only work in the Zane's Utilities desktop app on Windows.</p>
+<div class="bar"><button type="button" id="lv-pick">Choose folder…</button><button type="button" class="alt" id="lv-re" disabled>Refresh</button><button type="button" class="alt" id="lv-view" hidden>List view</button></div>
+<p id="lv-dir" class="fx" role="status" aria-live="polite"></p>
+<div id="lv-play" class="lvp" hidden>
+<video id="lv-v" controls preload="metadata"></video>
+<div class="jpi"><div class="tt"><b id="lv-t"></b><small id="lv-s"></small></div><label><input type="checkbox" id="lv-auto" checked> Play next</label><button type="button" id="lv-prev">Previous</button><button type="button" id="lv-next">Next</button><button type="button" id="lv-ext">Open in default player</button><button type="button" id="lv-x">Close</button></div>
+<p id="lv-msg" class="jhint" role="alert" hidden></p>
+</div>
+<input type="search" id="lv-q" placeholder="Filter videos" aria-label="Filter videos" hidden>
+<div id="lv-list"></div>
+</section>
 <div id="japp" class="jp" hidden><div class="jpi"><div class="tt"><b>Jellyfin</b><small id="jwho"></small></div><a id="jopen" class="ob" target="_blank" rel="noopener">Open in new tab</a><button type="button" id="jfs">Fullscreen</button><button type="button" id="jout">Change server</button></div><iframe id="jfr" title="Jellyfin" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe><p class="jhint">If this stays blank, your server or reverse proxy is blocking embedding (or it is plain http on an https page). Use Open in new tab instead.</p></div>
 </div>
 <div id="p-shred" class="pg" hidden>
@@ -531,7 +571,7 @@ document.querySelectorAll('.nv').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.nv').forEach(x=>x===b?x.setAttribute('aria-current','page'):x.removeAttribute('aria-current'));
  document.querySelectorAll('.pg').forEach(p=>{p.hidden=p.id!=='p-'+b.dataset.p});
  if(b.dataset.p==='hist')hrender();if(b.dataset.p==='home')homeRender();
- document.querySelector('main').classList.toggle('wide',b.dataset.p==='next'||b.dataset.p==='media');document.querySelector('main').classList.remove('full');if(b.dataset.p==='media')jopen();closeMenu();
+ document.querySelector('main').classList.toggle('wide',b.dataset.p==='next'||b.dataset.p==='media');document.querySelector('main').classList.remove('full');if(b.dataset.p==='media')jopen();else if(window.lvPause)lvPause();closeMenu();
 });
 
 document.querySelectorAll('[data-go]').forEach(c=>c.onclick=()=>document.querySelector('.nv[data-p="'+c.dataset.go+'"]').click());
@@ -888,7 +928,7 @@ try{localStorage.removeItem('gca-jellyfin');localStorage.removeItem('gca-jellyfi
 let J=(()=>{try{return localStorage.getItem(JK)||''}catch(e){return''}})();
 function jview(load){
  const f=$('#jfr'),u=J?J+'/web/index.html':'';
- $('#jform').hidden=!!J;$('#japp').hidden=!J;
+ $('#jform').hidden=!!J;$('#lv').hidden=!!J;$('#japp').hidden=!J;if(J){if(window.lvPause)lvPause()}else if(!$('#p-media').hidden&&window.lvEnter)lvEnter();
  document.querySelector('main').classList.toggle('full',!!J&&!$('#p-media').hidden);$('#p-media').classList.toggle('cn',!!J);
  if(J){$('#jwho').textContent=J.replace(/^https?:\/\//,'');$('#jopen').href=u;if(load&&f.dataset.u!==u){f.dataset.u=u;f.src=u}}
  else if(f.dataset.u){f.src='about:blank';delete f.dataset.u}
@@ -941,5 +981,6 @@ homeRender();
 <script src="drivers.js"></script>
 <script src="vendor-ui.js"></script>
 <script src="shred-ui.js"></script>
+<script src="video-ui.js"></script>
 </body>
 </html>
