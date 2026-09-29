@@ -1,0 +1,38 @@
+{
+  "name": "zanes-utilities",
+  "version": "1.0.0",
+  "description": "Zane's Utilities",
+  "author": "Zane",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.zane.utilities",
+    "productName": "Zanes Utilities",
+    "files": [
+      "main.js",
+      "preload.js",
+      "driver-ipc.js",
+      "drivers.js",
+      "vendor-ipc.js",
+      "vendor-sources.js",
+      "vendor-ui.js",
+      "shred-ipc.js",
+      "shred-ui.js",
+      "index.html",
+      "ps/*.ps1"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
