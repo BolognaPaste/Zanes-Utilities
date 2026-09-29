@@ -35,8 +35,6 @@ input[type=search]{width:100%;padding:8px 10px;border:1px solid var(--bd);border
 .g{display:flex;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--bd);border-radius:4px;padding:10px 12px;margin:0 0 8px}
 .g b{word-break:break-word}.g small{display:block;color:var(--mut);word-break:break-all}.g a{color:var(--acc);font-size:.9rem}
 .g .st{flex:none;color:var(--mut);font-size:.85rem;text-align:right}
-.g a.lb{display:inline-block;background:var(--acc);color:var(--card);padding:4px 12px;border-radius:4px;text-decoration:none;margin:6px 10px 0 0}
-.g a.lb:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 @media(max-width:640px){.src{grid-template-columns:1fr}}
 @media(max-width:640px){.app{flex-direction:column}nav{width:auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--bd);padding:10px}.brand{display:none}nav .nv{width:auto;white-space:nowrap}}
 h1{font-size:1.7rem;margin:0 0 4px;letter-spacing:-.01em}
@@ -176,9 +174,9 @@ details#gmd[open]>summary:after{content:" ▴"}
 .vnc .vh{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.vnc .vh b{font-size:1rem}
 .vnc dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 14px;margin:8px 0}.vnc dt{color:var(--mut)}.vnc dd{margin:0;word-break:break-word}
 .vnh{font-size:.95rem;margin:18px 0 2px;color:var(--mut)}.vnc .bar{margin-top:6px}.vnc progress{width:100%;max-width:360px;margin-top:10px}
-.dvbad{color:var(--h)}.dvok{color:var(--acc)}.dvw{color:var(--m)}
+.dvok{color:var(--acc)}.dvw{color:var(--m)}
 .dvb{background:var(--acc);color:var(--card);border-radius:10px;padding:0 7px;font-size:.78rem;margin-left:6px}
-.dvi{cursor:pointer}.dvi input{margin-right:6px}
+
 .dvt{overflow-x:auto;max-height:420px;overflow-y:auto}
 .dvt table{margin-top:4px}.dvt th{width:auto}.dvt td{font-family:inherit;font-size:.86rem;word-break:normal}
 .dvt td.o{color:var(--m)}
@@ -199,9 +197,6 @@ details#gmd[open]>summary:after{content:" ▴"}
 .pv .hr u{display:block;width:11px;height:11px;border:2px solid var(--bd);border-radius:2px;text-decoration:none}
 .pv .hr u.on{background:var(--acc);border-color:var(--acc)}
 .pv .hr s{display:block;height:6px;flex:1;background:var(--bd);border-radius:3px;text-decoration:none}
-.pv .tl{display:flex;gap:8px;height:100%}
-.pv .tl s{display:block;flex:1;border-radius:3px;text-decoration:none;background:linear-gradient(160deg,#39434e,#20252b)}
-.pv .tl s:nth-child(2){background:linear-gradient(160deg,#4a5a6a,#20252b)}.pv .tl s:nth-child(3){background:linear-gradient(160deg,#5a4a52,#20252b)}
 .pv.pl{background:#000;display:flex;flex-direction:column;justify-content:flex-end;gap:10px}
 .pv.pl:before{content:"";position:absolute;left:50%;top:38%;margin:-16px 0 0 -12px;border-style:solid;border-width:16px 0 16px 26px;border-color:transparent transparent transparent #fff;opacity:.9}
 .pv.pl s{display:block;height:5px;border-radius:3px;background:#3a4650;text-decoration:none;position:relative}
@@ -219,6 +214,19 @@ details#gmd[open]>summary:after{content:" ▴"}
 #p-shred .g button{margin:0;align-self:flex-start}
 #p-shred summary{margin:22px 0 6px}
 #sh-res progress{width:100%;max-width:420px}
+/* Encrypted vault */
+.pv.vl{display:flex;align-items:center;justify-content:center}
+.pv.vl s{display:block;position:relative;width:60px;height:44px;margin-top:30px;background:var(--acc);border-radius:6px;text-decoration:none}
+.pv.vl s:before{content:"";position:absolute;box-sizing:content-box;left:12px;top:-30px;width:24px;height:24px;border:6px solid var(--acc);border-bottom:0;border-radius:20px 20px 0 0}
+.pv.vl s:after{content:"";position:absolute;left:50%;top:14px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--code)}
+#p-vault .vf{background:var(--card);border:1px solid var(--bd);border-radius:6px;padding:14px 16px;margin:0 0 16px;max-width:560px}
+#p-vault .vf h2{margin:0 0 6px}
+#p-vault .vf .bar{margin-top:2px}
+#p-vault input[type=password],#p-vault input[type=text]{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:4px;background:var(--card);color:var(--fg);font:inherit;margin:6px 0}
+#p-vault summary{margin:22px 0 6px}
+#p-vault button[disabled]{opacity:.5}
+#vt-res progress{width:100%;max-width:420px}
+#vt-list{margin-top:10px}#vt-allw{display:block;margin:8px 0 6px}
 #ss{margin:0 0 26px}
 .ss{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:10px 0}
 .ss>div{background:var(--card);border:1px solid var(--bd);border-radius:6px;padding:12px 14px}
@@ -270,11 +278,11 @@ button[disabled]{cursor:default}
 </head>
 <body>
 <div class="app">
-<nav aria-label="Tools"><button type="button" class="tg" id="ntg" aria-label="Toggle menu" title="Toggle menu" aria-expanded="true">☰ Hide menu</button><div class="brand">Zane's Utilities</div><button type="button" class="nv" data-p="home" aria-current="page">Home</button><button type="button" class="nv" data-p="crash">Game Analyzer</button><button type="button" class="nv" data-p="hist">Past scans</button><button type="button" class="nv" data-p="next">Game library</button><button type="button" class="nv" data-p="media">Media player</button><button type="button" class="nv" data-p="drv">Driver updater<span id="dv-badge" class="dvb" hidden></span></button><button type="button" class="nv" data-p="shred">File shredder</button></nav>
+<nav aria-label="Tools"><button type="button" class="tg" id="ntg" aria-label="Toggle menu" title="Toggle menu" aria-expanded="true">☰ Hide menu</button><div class="brand">Zane's Utilities</div><button type="button" class="nv" data-p="home" aria-current="page">Home</button><button type="button" class="nv" data-p="crash">Game Analyzer</button><button type="button" class="nv" data-p="hist">Past scans</button><button type="button" class="nv" data-p="next">Game library</button><button type="button" class="nv" data-p="media">Media player</button><button type="button" class="nv" data-p="drv">Driver updater<span id="dv-badge" class="dvb" hidden></span></button><button type="button" class="nv" data-p="shred">File shredder</button><button type="button" class="nv" data-p="vault">Encrypted vault</button></nav>
 <main>
 <div id="p-home" class="pg">
 <h1>Zane's Utilities</h1>
-<p class="sub">Six tools in one place. Pick one to open it.</p>
+<p class="sub">Seven tools in one place. Pick one to open it.</p>
 <section id="ss" aria-labelledby="ss-h">
 <h2 id="ss-h">Shredding stats</h2>
 <dl class="ss"><div><dt>Data shredded</dt><dd id="ss-b">0 B</dd></div><div><dt>Files</dt><dd id="ss-f">0</dd></div><div><dt>Folders</dt><dd id="ss-d">0</dd></div></dl>
@@ -288,6 +296,7 @@ button[disabled]{cursor:default}
 <button type="button" class="hc" data-go="media"><span class="pv pl" aria-hidden="true"><s></s></span><span class="tx"><b>Media player</b><span>Your Jellyfin server, shown in full inside the app.</span><i>Open Media player</i></span></button>
 <button type="button" class="hc" data-go="drv"><span class="pv sv" id="hp-drv"></span><span class="tx"><b>Driver updater</b><span id="hp-drv-t">Find newer Microsoft-signed drivers for this PC and install the ones you pick.</span><i>Open Driver updater</i></span></button>
 <button type="button" class="hc" data-go="shred"><span class="pv" aria-hidden="true"><span class="sr"></span><span class="sr"></span><span class="sr"></span></span><span class="tx"><b>File shredder</b><span>Overwrite files and folders 5 times before deleting, so they cannot be recovered.</span><i>Open File shredder</i></span></button>
+<button type="button" class="hc" data-go="vault"><span class="pv vl" aria-hidden="true"><s></s></span><span class="tx"><b>Encrypted vault</b><span>Lock private files inside one container, encrypted with AES-256 and your password.</span><i>Open Encrypted vault</i></span></button>
 </div>
 </div>
 <div id="p-crash" class="pg" hidden>
@@ -368,6 +377,49 @@ button[disabled]{cursor:default}
 <details><summary>How it works and its limits</summary>
 <p class="fx">Each file is overwritten with zeros, then ones, then random data, then an alternating bit pattern, then random data again. Its name is scrambled and it is deleted. Folders are shredded file by file and then removed. Windows folders, drive roots and your user profile folder cannot be shredded.</p>
 <p class="fx">Overwriting cannot reach every copy. On SSDs, wear leveling can leave old data in cells the app cannot address, and cloud-synced folders, backups, File History and shadow copies keep their own copies. For SSDs, full-disk encryption (BitLocker) is the reliable protection.</p>
+</details>
+</div>
+<div id="p-vault" class="pg" hidden>
+<h1>Encrypted vault</h1>
+<p class="sub">Keep private files inside one encrypted container file. Both the contents and the file names are encrypted with AES-256, using a key made from your password. There is no password recovery: if you forget it, nobody can open the files.</p>
+<p id="vt-na" class="err" hidden>The encrypted vault only works in the Zane's Utilities desktop app.</p>
+<div id="vt-locked">
+<div class="vf">
+<h2>Open a vault</h2>
+<div class="bar"><button type="button" class="alt" id="vt-pick">Choose vault file…</button></div>
+<p id="vt-file" class="fx">No vault chosen.</p>
+<input type="password" id="vt-pw" placeholder="Vault password" aria-label="Vault password" autocomplete="off" disabled>
+<div class="bar"><button type="button" id="vt-unlock" disabled>Unlock</button></div>
+</div>
+<div class="vf">
+<h2>Create a new vault</h2>
+<input type="password" id="vt-np" placeholder="New password (at least 12 characters)" aria-label="New password" autocomplete="new-password">
+<input type="password" id="vt-np2" placeholder="Repeat the password" aria-label="Repeat the password" autocomplete="new-password">
+<p id="vt-meter" class="fx"></p>
+<label class="fx"><input type="checkbox" id="vt-show"> Show passwords</label>
+<div class="bar"><button type="button" id="vt-create">Create vault…</button></div>
+</div>
+</div>
+<div id="vt-unlocked" hidden>
+<p id="vt-info" class="fx"></p>
+<div class="bar"><button type="button" id="vt-addf">Add files…</button><button type="button" class="alt" id="vt-addd">Add folders…</button><button type="button" class="alt" id="vt-ext" disabled>Extract selected…</button><button type="button" class="dgr" id="vt-rm" disabled>Remove selected</button></div>
+<input type="search" id="vt-q" placeholder="Filter files" aria-label="Filter files" hidden>
+<label class="fx" id="vt-allw" hidden><input type="checkbox" id="vt-all"> Select all shown</label>
+<div id="vt-list"></div>
+<div class="bar"><button type="button" class="alt" id="vt-cpb">Change password…</button><button type="button" class="alt" id="vt-lockb">Lock now</button></div>
+<div id="vt-cp" class="vf" hidden style="margin-top:14px">
+<h2>Change password</h2>
+<input type="password" id="vt-op" placeholder="Current password" aria-label="Current password" autocomplete="off">
+<input type="password" id="vt-nw" placeholder="New password (at least 12 characters)" aria-label="New password" autocomplete="new-password">
+<input type="password" id="vt-nw2" placeholder="Repeat the new password" aria-label="Repeat the new password" autocomplete="new-password">
+<div class="bar"><button type="button" id="vt-cps">Change password</button><button type="button" class="alt" id="vt-cpx">Cancel</button></div>
+</div>
+</div>
+<div id="vt-res" role="status" aria-live="polite"></div>
+<details><summary>How it works and its limits</summary>
+<p class="fx">Your password is turned into a key with scrypt, which is deliberately slow and memory-hungry (about a second and 256 MB per guess) to make guessing hard. That key unlocks a random master key stored in the vault, and files are encrypted in 1 MB blocks with AES-256-GCM. Every block is authenticated, so any change to the vault file is detected instead of silently producing bad data. File names, sizes and dates are inside the encrypted index.</p>
+<p class="fx">What it cannot hide: anyone holding the file can see that it is a vault, its total size, and roughly how much is in it. The encryption is only as strong as the password, so use a long passphrase. While the vault is unlocked its key is in memory; it locks after 10 idle minutes or when you press Lock now. Malware or a keylogger on this PC can defeat any encryption.</p>
+<p class="fx">Adding files leaves your originals in place, and extracted files are ordinary unprotected copies, so use the File shredder on those when you are done. Changing the password re-wraps the master key but does not re-encrypt the files, so an old copy of the vault can still be opened with the old password. Removing files and changing the password rewrite the vault, which needs free disk space about the size of the vault. Keep a backup copy of the vault file somewhere safe.</p>
 </details>
 </div>
 <div id="p-drv" class="pg" hidden>
@@ -961,6 +1013,7 @@ homeRender();
 <script src="drivers.js"></script>
 <script src="vendor-ui.js"></script>
 <script src="shred-ui.js"></script>
+<script src="vault-ui.js"></script>
 <script src="video-ui.js"></script>
 </body>
 </html>

@@ -130,7 +130,7 @@
   function card(f, i) {
     const p = parts(f.rel), n = pretty(p.name), a = f.art || {};
     const wide = a.wide || '', poster = a.poster || '';
-    const src = wide || poster || thumbs.get(f.path) || '';
+    const src = headerSrc(f);
     const isArt = !!(wide || poster);
     const need = !src && thumbs.get(f.path) === undefined;
     const ini = initials(n.title);
@@ -207,7 +207,7 @@
     box.hidden = false;
     const art = headerSrc(f);
     if (art) vid.poster = fileUrl(art); else vid.removeAttribute('poster');
-    vid.muted = false; vid.volume = 1;
+    vid.muted = false;   // keep the volume the person set
     vid.src = fileUrl(fixed.get(f.path) || f.path);
     const pr = vid.play();
     if (pr && pr.catch) pr.catch(() => {});

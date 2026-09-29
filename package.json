@@ -21,6 +21,8 @@
       "vendor-ui.js",
       "shred-ipc.js",
       "shred-ui.js",
+      "vault-ipc.js",
+      "vault-ui.js",
       "video-ipc.js",
       "video-ui.js",
       "efs-shim.js",

@@ -9,7 +9,7 @@ try {
   if (__RESTORE__) {
     W @{ t = 'status'; m = 'Creating a restore point...' }
     try {
-      Checkpoint-Computer -Description 'Zanes Utilities driver update' -RestorePointType 'MODIFY_SETTINGS' -ErrorAction Stop
+      Checkpoint-Computer -Description 'Zanes Utilities driver update' -RestorePointType 'DEVICE_DRIVER_INSTALL' -ErrorAction Stop
       W @{ t = 'status'; m = 'Restore point created.' }
     } catch {
       W @{ t = 'warn'; m = ('No restore point was created: ' + $_.Exception.Message) }

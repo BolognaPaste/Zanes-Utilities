@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { runPS, readPS, listResult } = require('./driver-ipc');
-const { checkAll, checkComponents, downloadFile, NV_DL, NV_SIGNER } = require('./vendor-sources');
+const { checkAll, checkComponents, downloadFile, NV_DL } = require('./vendor-sources');
 
 const UA = 'ZanesUtilities/1.0 (driver version check)';
 const HOSTS = new Set(['www.nvidia.com', 'gfwsl.geforce.com', 'www.amd.com', 'www.intel.com']);
@@ -42,7 +42,7 @@ function register(ipcMain, getWin, { app, net, shell }) {
     const line = r.out.replace(/\uFEFF/g, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).pop();
     let j = {};
     try { j = JSON.parse(line); } catch {}
-    return { ok: j.status === 'Valid' && NV_SIGNER.test(j.subject || ''), status: j.status || 'Unknown', subject: j.subject || '' };
+    return { ok: j.status === 'Valid' && j.cn === 'NVIDIA Corporation', status: j.status || 'Unknown', subject: j.subject || '' };
   }
 
   ipcMain.handle('vnd:check', async () => {
@@ -55,12 +55,13 @@ function register(ipcMain, getWin, { app, net, shell }) {
       const build = Number((os.release().split('.')[2]) || 0);
       const data = await checkAll(g.data, { get, build });
       // Wi-Fi, Bluetooth, chipset and the PC maker link. A failure here must not hide the graphics results.
+      const noDevices = why => ({ vendor: 'This PC', category: 'Other', gpu: 'Other drivers', installed: '', status: 'unknown', page: '', source: 'Windows', note: 'Could not list the devices in this PC: ' + why });
       try {
         const dv = listResult(await runPS(readPS('devices.ps1'), 90000));
         if (dv.ok) data.push(...await checkComponents(dv.data, { get, build }));
-        else data.push({ vendor: 'This PC', category: 'Other', gpu: 'Other drivers', installed: '', status: 'unknown', page: '', source: 'Windows', note: 'Could not list the devices in this PC: ' + dv.error });
+        else data.push(noDevices(dv.error));
       } catch (e) {
-        data.push({ vendor: 'This PC', category: 'Other', gpu: 'Other drivers', installed: '', status: 'unknown', page: '', source: 'Windows', note: 'Could not list the devices in this PC: ' + String((e && e.message) || e) });
+        data.push(noDevices(String((e && e.message) || e)));
       }
       return { ok: true, data };
     } catch (e) {

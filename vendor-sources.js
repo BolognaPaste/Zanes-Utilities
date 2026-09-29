@@ -20,7 +20,6 @@ const INTEL_ARC = 'https://www.intel.com/content/www/us/en/download/785597/intel
 const INTEL_XE = 'https://www.intel.com/content/www/us/en/support/products/211012/graphics/processor-graphics/intel-iris-xe-graphics-family.html';
 
 const NV_DL = /^https:\/\/([a-z0-9-]+\.)*download\.nvidia\.com\/[^\s?#]+\.exe$/i;
-const NV_SIGNER = /CN=NVIDIA Corporation(,|$)/i;
 
 const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 const text = html => String(html).replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/\s+/g, ' ');
@@ -252,10 +251,11 @@ async function checkAmdChipset(app, ctx) {
   return { ...res, status: cmp(app.ver, m[1]) < 0 ? 'newer' : 'current', note: 'AMD only offers the download through its own site; use the page link.' };
 }
 
+const JUNK = /system manufacturer|to be filled|default string|o\.e\.m|^$/i;
+
 // Only links: nothing is fetched from these sites.
 function oemLink(pc) {
-  const junk = /system manufacturer|to be filled|default string|o\.e\.m|^$/i;
-  const maker = norm(junk.test(pc.mfr || '') ? pc.prov : pc.mfr);
+  const maker = norm(JUNK.test(pc.mfr || '') ? pc.prov : pc.mfr);
   const tag = String(pc.ver || '').trim();
   if (/dell|alienware/.test(maker)) return /^[a-z0-9]{7}$/i.test(tag) ? 'https://www.dell.com/support/home/en-us/product-support/servicetag/' + tag + '/drivers' : 'https://www.dell.com/support/home/en-us';
   if (/\bhp\b|hewlett/.test(maker)) return 'https://support.hp.com/us-en/drivers';
@@ -331,9 +331,8 @@ async function checkComponents(devs, ctx) {
     });
   }
   if (pc && link) {
-    const junk = /system manufacturer|to be filled|default string|o\.e\.m|^$/i;
     out.push({
-      vendor: tidyVendor(junk.test(pc.mfr || '') ? pc.prov : pc.mfr) || 'PC maker', category: 'PC maker',
+      vendor: tidyVendor(JUNK.test(pc.mfr || '') ? pc.prov : pc.mfr) || 'PC maker', category: 'PC maker',
       gpu: pc.name || 'This PC', installed: '', status: 'manual', page: link, source: 'PC maker',
       note: 'The maker\'s own page lists every driver it supports for this model, including the ones that cannot be checked automatically.'
     });
@@ -394,4 +393,4 @@ async function downloadFile(fetchFn, url, dest, onProgress, fsm) {
   return got;
 }
 
-module.exports = { checkAll, checkComponents, oemLink, downloadFile, vendorOf, nvidiaSeries, nvidiaInstalled, parseLookup, parseAmdNotes, cmp, NV_DL, NV_SIGNER };
+module.exports = { checkAll, checkComponents, downloadFile, NV_DL };

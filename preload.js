@@ -38,6 +38,24 @@ contextBridge.exposeInMainWorld('shredder', {
   }
 });
 
+contextBridge.exposeInMainWorld('vault', {
+  state: () => ipcRenderer.invoke('vlt:state'),
+  create: password => ipcRenderer.invoke('vlt:create', { password }),
+  pick: () => ipcRenderer.invoke('vlt:pick'),
+  open: (file, password) => ipcRenderer.invoke('vlt:open', { file, password }),
+  add: kind => ipcRenderer.invoke('vlt:add', { kind }),
+  extract: ids => ipcRenderer.invoke('vlt:extract', { ids }),
+  remove: ids => ipcRenderer.invoke('vlt:remove', { ids }),
+  changePassword: (oldPassword, newPassword) => ipcRenderer.invoke('vlt:passwd', { oldPassword, newPassword }),
+  lock: () => ipcRenderer.invoke('vlt:lock'),
+  cancel: () => ipcRenderer.invoke('vlt:cancel'),
+  onProgress: cb => {
+    const h = (_e, m) => cb(m);
+    ipcRenderer.on('vlt:progress', h);
+    return () => ipcRenderer.removeListener('vlt:progress', h);
+  }
+});
+
 contextBridge.exposeInMainWorld('localVideos', {
   pick: () => ipcRenderer.invoke('vid:pick'),
   scan: dir => ipcRenderer.invoke('vid:scan', dir),

@@ -16,9 +16,9 @@
 
   // Remember the last successful scan so the Home page preview can show it, even after a restart.
   const LAST_K = 'gca-dv-last';
-  const saveLast = list => {
+  const saveLast = found => {
     try {
-      localStorage.setItem(LAST_K, JSON.stringify({ at: Date.now(), items: list.slice(0, 100).map(i => ({ name: i.name || 'Driver update', ver: i.ver || '', mfr: i.mfr || '' })) }));
+      localStorage.setItem(LAST_K, JSON.stringify({ at: Date.now(), items: found.slice(0, 100).map(i => ({ name: i.name || 'Driver update', ver: i.ver || '', mfr: i.mfr || '' })) }));
     } catch {}
     if (window.homeRender) window.homeRender();
   };
@@ -38,7 +38,7 @@
   if (auto) auto.addEventListener('change', () => setFlag(AUTO_K, auto.checked));
   if (autoinst) autoinst.addEventListener('change', () => setFlag(AUTOINST_K, autoinst.checked));
 
-  let items = [], offProgress = null;
+  let items = [], installed = [], offProgress = null;
 
   function updateBadge(n) {
     if (!badge) return;
@@ -56,7 +56,7 @@
       '<span><b>' + esc(it.name || 'Driver update') + '</b>' + (bits ? '<small>' + esc(bits) + '</small>' : '') + '</span></label>';
   }
 
-  async function scan(auto) {
+  async function scan(autoRun) {
     scanBtn.disabled = true; res.innerHTML = ''; list.innerHTML = '';
     if (instBtn) { instBtn.disabled = true; instBtn.textContent = 'Install selected (0)'; }
     msg.className = 'fx'; msg.textContent = 'Checking Windows Update for driver updates\u2026 this can take a few minutes.';
@@ -76,7 +76,7 @@
     msg.textContent = items.length + ' driver update' + (items.length > 1 ? 's' : '') + ' found. Pick the ones to install below.';
     list.innerHTML = items.map(card).join('');
     updateSelected();
-    if (auto && autoinst && autoinst.checked) {
+    if (autoRun && autoinst && autoinst.checked) {
       list.querySelectorAll('input').forEach(i => { i.checked = true; });
       updateSelected();
       install();
@@ -106,7 +106,7 @@
     if (d.reboot) html += '<p class="fx">Restart your PC to finish installing.</p>';
     if (d.items && d.items.length) {
       html += '<div class="dvt"><table>' + d.items.map(it =>
-        '<tr><th>' + esc(it.title) + '</th><td class="o">' + (it.code === 2 ? 'Installed' : 'Failed') + (it.reboot ? ', restart needed' : '') + '</td></tr>'
+        '<tr><th>' + esc(it.title) + '</th><td class="o">' + (it.code === 2 ? 'Installed' : it.code === 3 ? 'Installed with errors' : 'Failed') + (it.reboot ? ', restart needed' : '') + '</td></tr>'
       ).join('') + '</table></div>';
     }
     if (d.warns && d.warns.length) html += d.warns.map(w => '<p class="fx">' + esc(w) + '</p>').join('');
@@ -114,7 +114,7 @@
     scan(false);
   }
 
-  function fmtDate(s) { try { return s ? new Date(s).toLocaleDateString() : ''; } catch { return s || ''; } }
+  const fmtDate = s => { const t = s ? Date.parse(s) : NaN; return t ? new Date(t).toLocaleDateString() : ''; };
   const THREE_YEARS = 3 * 365 * 24 * 60 * 60 * 1000;
 
   async function loadInstalled() {
@@ -122,12 +122,12 @@
     let r;
     try { r = await api.installed(); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
     if (!r || !r.ok) { ic.textContent = (r && r.error) || 'Could not list installed drivers.'; return; }
-    ilist._all = r.data || [];
+    installed = r.data || [];
     renderInstalled();
   }
 
   function renderInstalled() {
-    const all = ilist._all || [];
+    const all = installed;
     const term = (q.value || '').trim().toLowerCase();
     const cutoff = Date.now() - THREE_YEARS;
     const rows = all.filter(x => {
@@ -152,7 +152,7 @@
   if (instBtn) instBtn.addEventListener('click', install);
   q.addEventListener('input', renderInstalled);
   old.addEventListener('change', renderInstalled);
-  if (det) det.addEventListener('toggle', () => { if (det.open && !ilist._all) loadInstalled(); });
+  if (det) det.addEventListener('toggle', () => { if (det.open && !installed.length) loadInstalled(); });
 
   if (auto && auto.checked) scan(true);
 })();

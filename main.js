@@ -15,6 +15,7 @@ const START = {
 require('./driver-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0]);
 require('./vendor-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { app, net, shell });
 require('./shred-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { dialog });
+require('./vault-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { dialog });
 require('./video-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { dialog, shell, app, nativeImage });
 
 const okPath = p => typeof p === 'string' && path.isAbsolute(p);

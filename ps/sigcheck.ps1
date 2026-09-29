@@ -4,9 +4,12 @@ $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 try {
   $s = Get-AuthenticodeSignature -LiteralPath '__FILE__'
-  $sub = ''
-  if ($s.SignerCertificate) { $sub = [string]$s.SignerCertificate.Subject }
-  ConvertTo-Json -InputObject @{ status = [string]$s.Status; subject = $sub } -Compress
+  $sub = ''; $cn = ''
+  if ($s.SignerCertificate) {
+    $sub = [string]$s.SignerCertificate.Subject
+    $cn = [string]$s.SignerCertificate.GetNameInfo('SimpleName', $false)
+  }
+  ConvertTo-Json -InputObject @{ status = [string]$s.Status; subject = $sub; cn = $cn } -Compress
 } catch {
-  ConvertTo-Json -InputObject @{ status = 'Error'; subject = ''; error = [string]$_.Exception.Message } -Compress
+  ConvertTo-Json -InputObject @{ status = 'Error'; subject = ''; cn = ''; error = [string]$_.Exception.Message } -Compress
 }
