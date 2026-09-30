@@ -11,6 +11,7 @@
   "build": {
     "appId": "com.zane.utilities",
     "electronLanguages": ["en-US"],
+    "copyright": "Copyright \u00a9 Zane",
     "productName": "Zanes Utilities",
     "files": [
       "main.js",
@@ -35,11 +36,13 @@
       "efs-shim.js",
       "index.html",
       "bg.jpg",
+      "build/icon.png",
       "app.js",
       "ps/*.ps1",
       "scrcpy/**/*"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis",
         "portable"
@@ -47,7 +50,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Zane's Utilities"
     },
     "asarUnpack": [
       "node_modules/ffmpeg-static/**",

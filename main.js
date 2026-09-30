@@ -1,3 +1,6 @@
+// Keep compiled code for this app's own files on disk, so later launches skip parsing them (Node 22+; ignored if missing).
+try { const m = require('module'); if (typeof m.enableCompileCache === 'function') m.enableCompileCache(); } catch {}
+
 const { app, BrowserWindow, WebContentsView, Menu, session, ipcMain, dialog, shell, net, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
@@ -29,14 +32,19 @@ const ipc = {
     return fn(e, ...args);
   })
 };
-require('./driver-ipc').register(ipc, getWin);
-require('./vendor-ipc').register(ipc, getWin, { app, net, shell });
-require('./shred-ipc').register(ipc, getWin, { dialog });
-require('./vault-ipc').register(ipc, getWin, { dialog });
-require('./games-ipc').register(ipc, getWin, { app, net, session, shell, BrowserWindow });
-require('./fmhy-ipc').register(ipc, getWin, { session, shell, WebContentsView });
-require('./video-ipc').register(ipc, getWin, { dialog, shell, app, nativeImage });
-require('./phone-ipc').register(ipc, getWin, { app, dialog, shell });
+// The feature modules are loaded and registered right after the window has been asked to open (see whenReady
+// below), so the window starts loading while this file's modules are still being read. They are all registered
+// in the same step as the window is created, before the page can send its first request.
+function registerModules() {
+  require('./driver-ipc').register(ipc, getWin);
+  require('./vendor-ipc').register(ipc, getWin, { app, net, shell });
+  require('./shred-ipc').register(ipc, getWin, { dialog });
+  require('./vault-ipc').register(ipc, getWin, { dialog });
+  require('./games-ipc').register(ipc, getWin, { app, net, session, shell, BrowserWindow });
+  require('./fmhy-ipc').register(ipc, getWin, { session, shell, WebContentsView });
+  require('./video-ipc').register(ipc, getWin, { dialog, shell, app, nativeImage });
+  require('./phone-ipc').register(ipc, getWin, { app, dialog, shell });
+}
 
 const okPath = p => typeof p === 'string' && path.isAbsolute(p);
 
@@ -112,6 +120,7 @@ function createWindow() {
     width: 1200,
     height: 800,
     backgroundColor: '#0f161c',
+    icon: path.join(__dirname, 'build', 'icon.png'),   // taskbar/window icon when run with "npm start"; the built app uses build/icon.ico
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -141,12 +150,16 @@ function createWindow() {
 // <webview> is never used, so no window may create one.
 app.on('web-contents-created', (_e, wc) => wc.on('will-attach-webview', e => e.preventDefault()));
 
+// Same id as "appId" in package.json, so Windows groups the taskbar button under this app (with its icon and name) and not under Electron.
+app.setAppUserModelId('com.zane.utilities');
+
 app.whenReady().then(() => {
   if (!gotLock) return;
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(ALLOW.includes(perm)));
   session.defaultSession.setPermissionCheckHandler((wc, perm) => ALLOW.includes(perm));
   Menu.setApplicationMenu(null);
   createWindow();
+  registerModules();
 });
 
 app.on('window-all-closed', () => app.quit());

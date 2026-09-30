@@ -386,10 +386,15 @@ async function scanFolder(h,store){
  const dirs=[h],paths=store==='Steam'?[['steamapps']]:[['Data','Manifests'],['EpicGamesLauncher','Data','Manifests'],['Manifests']];
  for(const p of paths){try{dirs.push(await sub(h,p))}catch(e){}}
  const re=store==='Steam'?/^appmanifest_\d+\.acf$/i:/\.item$/i,parse=store==='Steam'?pSteam:pEpic,games=[];let libs=[];
- for(const d of dirs)for await(const[n,e]of d.entries()){
-  if(e.kind!=='file')continue;
-  if(re.test(n)){const f=await e.getFile();if(f.size>2e6)continue;const g=parse(await f.text());if(g)games.push(g)}
-  else if(store==='Steam'&&n.toLowerCase()==='libraryfolders.vdf'){const t=await(await e.getFile()).text();libs=[...t.matchAll(/"path"\s+"([^"]+)"/gi)].map(m=>m[1].replace(/\\\\/g,'\\'))}
+ // Every manifest in a folder is read at the same time instead of one after another (same results, same order).
+ for(const d of dirs){
+  const jobs=[];
+  for await(const[n,e]of d.entries()){
+   if(e.kind!=='file')continue;
+   if(re.test(n))jobs.push((async()=>{const f=await e.getFile();if(f.size>2e6)return null;return parse(await f.text())})());
+   else if(store==='Steam'&&n.toLowerCase()==='libraryfolders.vdf')jobs.push((async()=>{const t=await(await e.getFile()).text();libs=[...t.matchAll(/"path"\s+"([^"]+)"/gi)].map(m=>m[1].replace(/\\\\/g,'\\'));return null})());
+  }
+  for(const g of await Promise.all(jobs))if(g)games.push(g);
  }
  return{games,libs};
 }
@@ -481,7 +486,8 @@ $('#afe').onclick=()=>findGames('Epic',{ask:1});
 $('#afs2').onclick=()=>findGames('Steam',{ask:1,add:1});
 $('#afe2').onclick=()=>findGames('Epic',{ask:1,add:1});
 $('#aff').onclick=async()=>{await hput('Steam',[]);await hput('Epic',[]);am('Saved folders cleared.')};
-(async()=>{if(!canDir()){const m=$('#gm');m.textContent=noDir();m.hidden=false;return}for(const st of['Steam','Epic']){if((await hget(st)).length)await findGames(st)}lpend()})();
+// The saved folders are rescanned a moment after launch, not while the window is still opening.
+setTimeout(async()=>{if(!canDir()){const m=$('#gm');m.textContent=noDir();m.hidden=false;return}for(const st of['Steam','Epic']){if((await hget(st)).length)await findGames(st)}lpend()},1500);
 $('#gpb').onclick=async()=>{for(const st of[...pend])await findGames(st,{ask:1,noPick:1});lpend()};
 $('#hcmp').onclick=cmp;
 $('#hd').onclick=()=>{const ids=new Set([...document.querySelectorAll('#hl input:checked')].map(i=>i.value));hsave(hload().filter(x=>!ids.has(x.id)));hrender()};

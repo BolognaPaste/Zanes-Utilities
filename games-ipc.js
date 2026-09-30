@@ -41,7 +41,9 @@ const AD_HOSTS = ['doubleclick.net', 'googlesyndication.com', 'googleadservices.
   'teads.tv', 'smartadserver.com', 'lijit.com', 'sharethrough.com', '33across.com', 'bidswitch.net', 'media.net', 'yieldmo.com',
   'connatix.com', 'spotx.tv', 'springserve.com', 'advertising.com', 'adform.net', 'adcolony.com', 'applovin.com', 'unityads.unity3d.com',
   'gadsme.com', 'a-mo.net', 'servedbyadbutler.com', 'adsco.re', 'exoclick.com', 'popads.net', 'propellerads.com'];
-const isAdHost = h => AD_HOSTS.some(d => h === d || h.endsWith('.' + d));
+// Looks up the host and then each parent domain (a.b.example.com, b.example.com, example.com) in a Set.
+const AD_SET = new Set(AD_HOSTS);
+const isAdHost = h => { for (let x = h; x; ) { if (AD_SET.has(x)) return true; const i = x.indexOf('.'); x = i < 0 ? '' : x.slice(i + 1); } return false; };
 const COOLMATH_HOST = /^([a-z0-9-]+\.)*(coolmathgames|coolmath-games|coolmath|coolmath4kids)\.com$/i;
 
 const NAMED = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', mdash: '\u2014', ndash: '\u2013',

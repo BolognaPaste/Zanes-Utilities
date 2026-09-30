@@ -108,8 +108,8 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
   const send = m => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send('vid:progress', m); };
   let fixProc = null, fixCancelled = false;
 
-  // Converted copies are only a cache: remove the ones not touched for two weeks.
-  (async () => {
+  // Converted copies are only a cache: remove the ones not touched for two weeks (a little after start-up, not during it).
+  const cleanOld = async () => {
     try {
       const now = Date.now();
       for (const n of await fsp.readdir(fixDir())) {
@@ -117,7 +117,8 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
         if (now - (await fsp.stat(f)).mtimeMs > 14 * 86400000) await fsp.unlink(f).catch(() => {});
       }
     } catch {}
-  })();
+  };
+  setTimeout(cleanOld, 20000).unref();
 
   ipcMain.handle('vid:pick', async () => {
     const r = await dialog.showOpenDialog(getWin(), { title: 'Choose a folder of videos', properties: ['openDirectory'] });
