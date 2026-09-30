@@ -213,11 +213,11 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
 
   ipcMain.handle('vid:fixcancel', () => { fixCancelled = true; if (fixProc) fixProc.kill(); return true; });
 
-  // Opens one video in the default player. Only video file types are allowed, never programs.
+  // Opens one video in the default player. Only video files from the last scan are allowed, never programs.
   ipcMain.handle('vid:open', async (_e, file) => {
-    if (typeof file !== 'string' || !path.isAbsolute(file) || !VIDEO.test(file) || !fs.existsSync(file)) return 'That file cannot be opened.';
+    if (typeof file !== 'string' || !known.has(file) || !VIDEO.test(file) || !fs.existsSync(file)) return 'That file cannot be opened.';
     return shell.openPath(file);
   });
 }
 
-module.exports = { register, walk, VIDEO };
+module.exports = { register };

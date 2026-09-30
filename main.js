@@ -1,10 +1,10 @@
-const { app, BrowserWindow, Menu, session, ipcMain, dialog, shell, net, nativeImage } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, session, ipcMain, dialog, shell, net, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 const { existsSync } = require('fs');
 
-const CLIP = ['clipboard-read', 'clipboard-sanitized-write'];
-const ALLOW = [...CLIP, 'fullscreen'];   // 'fullscreen' is what lets <video> and the Jellyfin frame go fullscreen
+// The page only writes to the clipboard, and 'fullscreen' lets <video> and the Jellyfin frame go fullscreen.
+const ALLOW = ['clipboard-sanitized-write', 'fullscreen'];
 const EXTERNAL = /^(steam:|com\.epicgames\.launcher:|https?:)/i;
 const TEXT_OK = /\.(acf|item|vdf)$/i;          // only launcher manifests may be read as text
 const START = {
@@ -12,16 +12,36 @@ const START = {
   'gca-epic': 'C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests'
 };
 
-require('./driver-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0]);
-require('./vendor-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { app, net, shell });
-require('./shred-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { dialog });
-require('./vault-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { dialog });
-require('./video-ipc').register(ipcMain, () => BrowserWindow.getAllWindows()[0], { dialog, shell, app, nativeImage });
+let mainWin = null;
+const getWin = () => (mainWin && !mainWin.isDestroyed() ? mainWin : undefined);
+
+// Only one copy of the app may run: two copies would fight over the same vault, scrcpy and cache folders.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) app.quit();
+else app.on('second-instance', () => { const w = getWin(); if (w) { if (w.isMinimized()) w.restore(); w.focus(); } });
+
+// Every IPC handler goes through this, so only the app's own top-level page can call them. Frames with other
+// content (Jellyfin, games) and the FMHY / Coolmath views never get the preload bridge, and this is a second lock.
+const trusted = e => !!mainWin && !mainWin.isDestroyed() && e.sender === mainWin.webContents && !!e.senderFrame && e.senderFrame === e.sender.mainFrame;
+const ipc = {
+  handle: (channel, fn) => ipcMain.handle(channel, (e, ...args) => {
+    if (!trusted(e)) throw new Error('Blocked: this request did not come from the app window.');
+    return fn(e, ...args);
+  })
+};
+require('./driver-ipc').register(ipc, getWin);
+require('./vendor-ipc').register(ipc, getWin, { app, net, shell });
+require('./shred-ipc').register(ipc, getWin, { dialog });
+require('./vault-ipc').register(ipc, getWin, { dialog });
+require('./games-ipc').register(ipc, getWin, { app, net, session, shell, BrowserWindow });
+require('./fmhy-ipc').register(ipc, getWin, { session, shell, WebContentsView });
+require('./video-ipc').register(ipc, getWin, { dialog, shell, app, nativeImage });
+require('./phone-ipc').register(ipc, getWin, { app, dialog, shell });
 
 const okPath = p => typeof p === 'string' && path.isAbsolute(p);
 
 // Native folder picker: no Chromium "system folder" blocklist, so Program Files works.
-ipcMain.handle('efs:pick', async (e, id) => {
+ipc.handle('efs:pick', async (e, id) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   const def = START[id];
   const r = await dialog.showOpenDialog(win, {
@@ -32,7 +52,7 @@ ipcMain.handle('efs:pick', async (e, id) => {
 });
 
 // Native file picker for game executables: returns full paths, .exe files only.
-ipcMain.handle('efs:pickExe', async e => {
+ipc.handle('efs:pickExe', async e => {
   const win = BrowserWindow.fromWebContents(e.sender);
   const r = await dialog.showOpenDialog(win, {
     title: 'Choose game executables',
@@ -42,7 +62,7 @@ ipcMain.handle('efs:pickExe', async e => {
   return r.canceled ? [] : r.filePaths.filter(p => /\.exe$/i.test(p));
 });
 
-ipcMain.handle('efs:list', async (_e, p) => {
+ipc.handle('efs:list', async (_e, p) => {
   if (!okPath(p)) throw new Error('bad path');
   const out = [];
   for (const d of await fs.readdir(p, { withFileTypes: true })) {
@@ -55,7 +75,7 @@ ipcMain.handle('efs:list', async (_e, p) => {
   return out;
 });
 
-ipcMain.handle('efs:stat', async (_e, p) => {
+ipc.handle('efs:stat', async (_e, p) => {
   if (!okPath(p)) return null;
   try {
     const s = await fs.stat(p);
@@ -63,11 +83,28 @@ ipcMain.handle('efs:stat', async (_e, p) => {
   } catch { return null; }
 });
 
-ipcMain.handle('efs:text', async (_e, p) => {
+ipc.handle('efs:text', async (_e, p) => {
   if (!okPath(p) || !TEXT_OK.test(p)) throw new Error('not allowed');
   const s = await fs.stat(p);
   if (s.size > 2e6) throw new Error('too large');
   return fs.readFile(p, 'utf8');
+});
+
+// "Delete all data" on the Home page: clears the app's browser storage and caches (main window, Coolmath
+// and FMHY windows) and the video thumbnail cache (plus the converted-audio cache when asked), then reloads the page so nothing
+// in memory writes the data back. Vault files, shredded files and installers you downloaded are yours and are left alone.
+ipc.handle('app:wipe', async (e, opts) => {
+  const failed = [];
+  const step = async (label, fn) => { try { await fn(); } catch { failed.push(label); } };
+  const clearSes = async ses => { await ses.clearStorageData(); await ses.clearCache(); };
+  await step('app storage', () => clearSes(session.defaultSession));
+  for (const part of ['persist:coolmath', 'persist:fmhy']) await step(part, () => clearSes(session.fromPartition(part)));
+  // Converted audio copies are only removed when the person ticked the option.
+  for (const d of ['video-thumbs'].concat(opts && opts.audio ? ['video-audio-fixed'] : [])) await step(d, () => fs.rm(path.join(app.getPath('userData'), d), { recursive: true, force: true }));
+  if (failed.length) return { ok: false, error: 'Some data could not be deleted: ' + failed.join(', ') + '.' };
+  const win = BrowserWindow.fromWebContents(e.sender);
+  setTimeout(() => { if (win && !win.isDestroyed()) win.webContents.reloadIgnoringCache(); }, 100);
+  return { ok: true };
 });
 
 function createWindow() {
@@ -82,25 +119,33 @@ function createWindow() {
       sandbox: true
     }
   });
-  Menu.setApplicationMenu(null);
-
+  mainWin = win;
   // Play buttons (steam:// and Epic links) and "open in new tab" go to the OS, not into the app window.
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (EXTERNAL.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
-  win.webContents.on('will-navigate', (e, url) => {
-    if (url.startsWith('file:')) return;
+  // The app window may only reload its own page. Any other address (including other file: pages, which would
+  // get the preload bridge) is refused; web links and Steam/Epic links go to the OS instead.
+  const navigate = (e, url) => {
+    if (url.split('#')[0] === win.webContents.getURL().split('#')[0]) return;
     e.preventDefault();
     if (EXTERNAL.test(url)) shell.openExternal(url);
-  });
+  };
+  win.webContents.on('will-navigate', navigate);
+  win.webContents.on('will-redirect', navigate);
 
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 
+// <webview> is never used, so no window may create one.
+app.on('web-contents-created', (_e, wc) => wc.on('will-attach-webview', e => e.preventDefault()));
+
 app.whenReady().then(() => {
+  if (!gotLock) return;
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(ALLOW.includes(perm)));
   session.defaultSession.setPermissionCheckHandler((wc, perm) => ALLOW.includes(perm));
+  Menu.setApplicationMenu(null);
   createWindow();
 });
 

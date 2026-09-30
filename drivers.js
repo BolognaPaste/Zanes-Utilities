@@ -56,8 +56,8 @@
       '<span><b>' + esc(it.name || 'Driver update') + '</b>' + (bits ? '<small>' + esc(bits) + '</small>' : '') + '</span></label>';
   }
 
-  async function scan(autoRun) {
-    scanBtn.disabled = true; res.innerHTML = ''; list.innerHTML = '';
+  async function scan(autoRun, keepResult) {
+    scanBtn.disabled = true; if (!keepResult) res.innerHTML = ''; list.innerHTML = '';
     if (instBtn) { instBtn.disabled = true; instBtn.textContent = 'Install selected (0)'; }
     msg.className = 'fx'; msg.textContent = 'Checking Windows Update for driver updates\u2026 this can take a few minutes.';
     let r;
@@ -111,7 +111,7 @@
     }
     if (d.warns && d.warns.length) html += d.warns.map(w => '<p class="fx">' + esc(w) + '</p>').join('');
     res.innerHTML = html;
-    scan(false);
+    scan(false, true);   // refresh the list, but keep the install result on screen
   }
 
   const fmtDate = s => { const t = s ? Date.parse(s) : NaN; return t ? new Date(t).toLocaleDateString() : ''; };
@@ -154,5 +154,7 @@
   old.addEventListener('change', renderInstalled);
   if (det) det.addEventListener('toggle', () => { if (det.open && !installed.length) loadInstalled(); });
 
-  if (auto && auto.checked) scan(true);
+  // The automatic scan starts a few seconds after launch, so it does not compete with the window opening.
+  // It is skipped if a scan was already started by hand in the meantime.
+  if (auto && auto.checked) setTimeout(() => { if (!scanBtn.disabled) scan(true); }, 4000);
 })();

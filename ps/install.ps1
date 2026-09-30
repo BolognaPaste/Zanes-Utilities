@@ -9,8 +9,9 @@ try {
   if (__RESTORE__) {
     W @{ t = 'status'; m = 'Creating a restore point...' }
     try {
-      Checkpoint-Computer -Description 'Zanes Utilities driver update' -RestorePointType 'DEVICE_DRIVER_INSTALL' -ErrorAction Stop
-      W @{ t = 'status'; m = 'Restore point created.' }
+      $cw = $null
+      Checkpoint-Computer -Description 'Zanes Utilities driver update' -RestorePointType 'DEVICE_DRIVER_INSTALL' -ErrorAction Stop -WarningVariable cw -WarningAction SilentlyContinue
+      if ($cw) { W @{ t = 'warn'; m = ('No restore point was created: ' + ($cw -join ' ')) } } else { W @{ t = 'status'; m = 'Restore point created.' } }
     } catch {
       W @{ t = 'warn'; m = ('No restore point was created: ' + $_.Exception.Message) }
     }

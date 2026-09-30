@@ -10,6 +10,7 @@
   },
   "build": {
     "appId": "com.zane.utilities",
+    "electronLanguages": ["en-US"],
     "productName": "Zanes Utilities",
     "files": [
       "main.js",
@@ -24,10 +25,19 @@
       "vault-ipc.js",
       "vault-ui.js",
       "video-ipc.js",
+      "games-ipc.js",
+      "games-ui.js",
+      "fmhy-ipc.js",
+      "fmhy-ui.js",
       "video-ui.js",
+      "phone-ipc.js",
+      "phone-ui.js",
       "efs-shim.js",
       "index.html",
-      "ps/*.ps1"
+      "bg.jpg",
+      "app.js",
+      "ps/*.ps1",
+      "scrcpy/**/*"
     ],
     "win": {
       "target": [
@@ -40,16 +50,15 @@
       "allowToChangeInstallationDirectory": true
     },
     "asarUnpack": [
-      "node_modules/ffmpeg-static/**"
-    ],
-    "extraResources": [
-      {
-        "from": "node_modules/ffmpeg-static/ffmpeg.exe",
-        "to": "ffmpeg.exe"
-      }
+      "node_modules/ffmpeg-static/**",
+      "scrcpy/**"
     ]
   },
   "dependencies": {
     "ffmpeg-static": "^5.2.0"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
   }
 }

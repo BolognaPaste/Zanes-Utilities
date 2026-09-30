@@ -44,8 +44,8 @@
       const p = this.fsPath, s = await efs.stat(p);
       if (!s) throw fail('NotFoundError', 'A file with that name could not be found.');
       if (s.kind !== 'file') throw fail('TypeMismatchError', 'That entry is not a file.');
-      // The page only reads name, size, lastModified and text(), so this is not a full File object.
-      return { name: this.name, size: s.size, lastModified: Math.round(s.mtimeMs), type: '', text: () => efs.text(p) };
+      // The page only reads name, size and text(), so this is not a full File object.
+      return { name: this.name, size: s.size, text: () => efs.text(p) };
     }
   }
 
@@ -57,20 +57,11 @@
         yield [e.name, e.kind === 'directory' ? new DirHandle(p) : new FileHandle(p)];
       }
     }
-    async *keys() { for await (const [n] of this.entries()) yield n; }
-    async *values() { for await (const [, h] of this.entries()) yield h; }
-    [Symbol.asyncIterator]() { return this.entries(); }
     async getDirectoryHandle(name) {
       const p = join(this.fsPath, name), s = await efs.stat(p);
       if (!s) throw fail('NotFoundError', 'A directory with that name could not be found.');
       if (s.kind !== 'directory') throw fail('TypeMismatchError', 'That entry is not a directory.');
       return new DirHandle(p);
-    }
-    async getFileHandle(name) {
-      const p = join(this.fsPath, name), s = await efs.stat(p);
-      if (!s) throw fail('NotFoundError', 'A file with that name could not be found.');
-      if (s.kind !== 'file') throw fail('TypeMismatchError', 'That entry is not a file.');
-      return new FileHandle(p);
     }
   }
 

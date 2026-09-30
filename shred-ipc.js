@@ -20,7 +20,8 @@ function isProtected(p) {
   if (n === sys || n.startsWith(sys + path.sep)) return true;
   const exact = [env('ProgramFiles'), env('ProgramFiles(x86)'), env('ProgramData'), env('USERPROFILE'),
     env('APPDATA'), env('LOCALAPPDATA'), os.homedir(), path.dirname(os.homedir())].filter(Boolean).map(norm);
-  return exact.includes(n);
+  // Exact matches, and any folder that contains one of them (for example AppData, which holds Roaming and Local).
+  return exact.some(x => x === n || x.startsWith(n + path.sep));
 }
 
 async function collect(p, files, dirs) {
@@ -144,4 +145,4 @@ function register(ipcMain, getWin, { dialog }) {
   });
 }
 
-module.exports = { register, isProtected };
+module.exports = { register };

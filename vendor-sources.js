@@ -1,6 +1,6 @@
 'use strict';
 // Looks up the newest GPU driver published by each manufacturer and compares it with what is
-// installed. Network access is injected (ctx.get) so this file can be tested without a network.
+// installed. Network access is injected (ctx.get).
 //
 // Sources:
 //   NVIDIA  public driver-lookup service used by nvidia.com/Download (XML lists + JSON query)
@@ -142,7 +142,7 @@ function parseAmdNotes(html) {
 
 async function checkAmd(gpu, ctx) {
   const base = { vendor: 'AMD', gpu: gpu.name, installed: gpu.ver, page: AMD_PAGE, source: 'AMD release notes' };
-  const now = ctx.now || new Date();
+  const now = new Date();
   let found = null;
   outer:
   for (let back = 0; back < 3; back++) {
@@ -362,9 +362,11 @@ async function checkAll(gpus, ctx) {
   return out.map(x => ({ category: 'Graphics', ...x }));
 }
 
+const MAX_DOWNLOAD = 4 * 1024 * 1024 * 1024;   // GeForce installers are about 1 GB; stop anything far beyond that
+
 // Streams a URL to disk. fetchFn is fetch-compatible (Electron's net.fetch in the app).
-async function downloadFile(fetchFn, url, dest, onProgress, fsm) {
-  const fs = fsm || require('fs');
+async function downloadFile(fetchFn, url, dest, onProgress) {
+  const fs = require('fs');
   const part = dest + '.part';
   const res = await fetchFn(url, { headers: { 'User-Agent': 'ZanesUtilities/1.0 (driver download)' } });
   if (!res.ok) throw new Error('Download failed (HTTP ' + res.status + ').');
@@ -379,6 +381,7 @@ async function downloadFile(fetchFn, url, dest, onProgress, fsm) {
       const { done, value } = await Promise.race([reader.read(), failed]);
       if (done) break;
       got += value.length;
+      if (got > MAX_DOWNLOAD) throw new Error('The download was larger than expected, so it was stopped.');
       if (!out.write(value)) await Promise.race([new Promise(r => out.once('drain', r)), failed]);
       if (Date.now() - last > 250) { last = Date.now(); onProgress && onProgress(got, total); }
     }

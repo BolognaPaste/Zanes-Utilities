@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { runPS, readPS, listResult } = require('./driver-ipc');
+const { runPS, readPS, listResult, psq } = require('./driver-ipc');
 const { checkAll, checkComponents, downloadFile, NV_DL } = require('./vendor-sources');
 
 const UA = 'ZanesUtilities/1.0 (driver version check)';
@@ -38,7 +38,7 @@ function register(ipcMain, getWin, { app, net, shell }) {
   }
 
   async function sigCheck(file) {
-    const r = await runPS(readPS('sigcheck.ps1').replace('__FILE__', () => file.replace(/'/g, "''")), 180000);
+    const r = await runPS(readPS('sigcheck.ps1').replace('__FILE__', () => psq(file)), 180000);
     const line = r.out.replace(/\uFEFF/g, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).pop();
     let j = {};
     try { j = JSON.parse(line); } catch {}

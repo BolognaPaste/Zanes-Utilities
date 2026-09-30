@@ -1,5 +1,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Subscribes to a channel and returns the function that unsubscribes.
+const on = channel => cb => {
+  const h = (_e, m) => cb(m);
+  ipcRenderer.on(channel, h);
+  return () => ipcRenderer.removeListener(channel, h);
+};
+
 contextBridge.exposeInMainWorld('efs', {
   pickDir: id => ipcRenderer.invoke('efs:pick', id),
   pickExe: () => ipcRenderer.invoke('efs:pickExe'),
@@ -15,27 +22,15 @@ contextBridge.exposeInMainWorld('drivers', {
   vendors: () => ipcRenderer.invoke('vnd:check'),
   download: url => ipcRenderer.invoke('vnd:download', { url }),
   runInstaller: file => ipcRenderer.invoke('vnd:run', { file }),
-  onDownload: cb => {
-    const h = (_e, m) => cb(m);
-    ipcRenderer.on('vnd:progress', h);
-    return () => ipcRenderer.removeListener('vnd:progress', h);
-  },
-  onProgress: cb => {
-    const h = (_e, m) => cb(m);
-    ipcRenderer.on('drv:progress', h);
-    return () => ipcRenderer.removeListener('drv:progress', h);
-  }
+  onDownload: on('vnd:progress'),
+  onProgress: on('drv:progress')
 });
 
 contextBridge.exposeInMainWorld('shredder', {
   pick: kind => ipcRenderer.invoke('shr:pick', kind),
   run: paths => ipcRenderer.invoke('shr:run', { paths }),
   cancel: () => ipcRenderer.invoke('shr:cancel'),
-  onProgress: cb => {
-    const h = (_e, m) => cb(m);
-    ipcRenderer.on('shr:progress', h);
-    return () => ipcRenderer.removeListener('shr:progress', h);
-  }
+  onProgress: on('shr:progress')
 });
 
 contextBridge.exposeInMainWorld('vault', {
@@ -49,11 +44,37 @@ contextBridge.exposeInMainWorld('vault', {
   changePassword: (oldPassword, newPassword) => ipcRenderer.invoke('vlt:passwd', { oldPassword, newPassword }),
   lock: () => ipcRenderer.invoke('vlt:lock'),
   cancel: () => ipcRenderer.invoke('vlt:cancel'),
-  onProgress: cb => {
-    const h = (_e, m) => cb(m);
-    ipcRenderer.on('vlt:progress', h);
-    return () => ipcRenderer.removeListener('vlt:progress', h);
-  }
+  onProgress: on('vlt:progress')
+});
+
+contextBridge.exposeInMainWorld('webGames', {
+  list: (category, adult) => ipcRenderer.invoke('gms:list', { category, adult: !!adult }),
+  blockAds: on => ipcRenderer.invoke('gms:ads', !!on),
+  coolmath: () => ipcRenderer.invoke('gms:coolmath')
+});
+
+contextBridge.exposeInMainWorld('appData', {
+  wipe: opts => ipcRenderer.invoke('app:wipe', { audio: !!(opts && opts.audio) })
+});
+
+contextBridge.exposeInMainWorld('fmhy', {
+  show: bounds => ipcRenderer.invoke('fmhy:show', bounds),
+  bounds: bounds => ipcRenderer.invoke('fmhy:bounds', bounds),
+  hide: () => ipcRenderer.invoke('fmhy:hide'),
+  nav: what => ipcRenderer.invoke('fmhy:nav', what)
+});
+
+contextBridge.exposeInMainWorld('phone', {
+  status: () => ipcRenderer.invoke('phn:status'),
+  devices: () => ipcRenderer.invoke('phn:devices'),
+  start: (serial, opts) => ipcRenderer.invoke('phn:start', { serial, opts }),
+  stop: () => ipcRenderer.invoke('phn:stop'),
+  key: (serial, action) => ipcRenderer.invoke('phn:key', { serial, action }),
+  shot: serial => ipcRenderer.invoke('phn:shot', { serial }),
+  install: serial => ipcRenderer.invoke('phn:install', { serial }),
+  reveal: file => ipcRenderer.invoke('phn:reveal', { file }),
+  folder: () => ipcRenderer.invoke('phn:folder'),
+  onEvent: on('phn:event')
 });
 
 contextBridge.exposeInMainWorld('localVideos', {
@@ -63,9 +84,5 @@ contextBridge.exposeInMainWorld('localVideos', {
   thumb: file => ipcRenderer.invoke('vid:thumb', file),
   fixAudio: file => ipcRenderer.invoke('vid:fixaudio', file),
   cancelFix: () => ipcRenderer.invoke('vid:fixcancel'),
-  onFix: cb => {
-    const h = (_e, m) => cb(m);
-    ipcRenderer.on('vid:progress', h);
-    return () => ipcRenderer.removeListener('vid:progress', h);
-  }
+  onFix: on('vid:progress')
 });

@@ -14,5 +14,7 @@ Get-ItemProperty -Path $keys | Where-Object { $_.DisplayName -match 'chipset' -a
 $cs = Get-CimInstance Win32_ComputerSystem
 $bb = Get-CimInstance Win32_BaseBoard
 $bi = Get-CimInstance Win32_BIOS
-[void]$o.Add([pscustomobject]@{ k = 'pc'; name = [string]$cs.Model; cls = ''; mfr = [string]$cs.Manufacturer; prov = [string]$bb.Manufacturer; ver = [string]$bi.SerialNumber })
+$sn = ''
+if (([string]$cs.Manufacturer + ' ' + [string]$bb.Manufacturer) -match 'dell|alienware') { $sn = [string]$bi.SerialNumber }
+[void]$o.Add([pscustomobject]@{ k = 'pc'; name = [string]$cs.Model; cls = ''; mfr = [string]$cs.Manufacturer; prov = [string]$bb.Manufacturer; ver = $sn })
 ConvertTo-Json -InputObject @($o) -Compress
