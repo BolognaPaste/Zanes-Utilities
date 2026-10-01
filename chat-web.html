@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chat</title>
+<link rel="stylesheet" href="/chat.css">
+<style>
+:root{--bg:#0a0710;--fg:#ece6f5;--mut:#a394b8;--card:#150f1f;--bd:#2e2340;--acc:#b57bff;--h:#ff8a80;--code:#0a0710;color-scheme:dark}
+@media(prefers-color-scheme:light){:root{--bg:#f0ecf5;--fg:#1a1424;--mut:#665a78;--card:#fff;--bd:#d8cfe4;--acc:#6b2fb3;--h:#b3261e;--code:#f5f2f8;color-scheme:light}}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#app{height:100%;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="/chat-ui.js"></script>
+<script src="/chat-web.js"></script>
+</body>
+</html>

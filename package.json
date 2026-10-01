@@ -10,8 +10,10 @@
   },
   "build": {
     "appId": "com.zane.utilities",
-    "electronLanguages": ["en-US"],
-    "copyright": "Copyright \u00a9 Zane",
+    "electronLanguages": [
+      "en-US"
+    ],
+    "copyright": "Copyright © Zane",
     "productName": "Zanes Utilities",
     "files": [
       "main.js",
@@ -30,16 +32,38 @@
       "games-ui.js",
       "fmhy-ipc.js",
       "fmhy-ui.js",
+      "adblock.js",
+      "lock-ipc.js",
+      "lock-ui.js",
+      "lock-boot.js",
       "video-ui.js",
       "phone-ipc.js",
       "phone-ui.js",
+      "ssh-ipc.js",
+      "ssh-sftp.js",
+      "ssh-ui.js",
+      "optimizer-ipc.js",
+      "optimizer-ui.js",
+      "chat-core.js",
+      "chat-server.js",
+      "chat-tunnel.js",
+      "chat-remote.js",
+      "chat-ipc.js",
+      "chat-ui.js",
+      "chat-web.html",
+      "chat-web.js",
+      "mumble-ipc.js",
+      "chat.css",
+      "test-ui.js",
       "efs-shim.js",
       "index.html",
       "bg.jpg",
       "build/icon.png",
       "app.js",
       "ps/*.ps1",
-      "scrcpy/**/*"
+      "scrcpy/**/*",
+      "cloudflared/**/*",
+      "mumble/**/*"
     ],
     "win": {
       "icon": "build/icon.ico",
@@ -55,11 +79,17 @@
     },
     "asarUnpack": [
       "node_modules/ffmpeg-static/**",
-      "scrcpy/**"
+      "scrcpy/**",
+      "cloudflared/**",
+      "mumble/**"
     ]
   },
   "dependencies": {
-    "ffmpeg-static": "^5.2.0"
+    "@ghostery/adblocker-electron": "^2.0.0",
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/xterm": "5.5.0",
+    "ffmpeg-static": "^5.2.0",
+    "ssh2": "^1.16.0"
   },
   "devDependencies": {
     "electron": "^44.4.5",

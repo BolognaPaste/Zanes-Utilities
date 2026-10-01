@@ -61,7 +61,13 @@ contextBridge.exposeInMainWorld('fmhy', {
   show: bounds => ipcRenderer.invoke('fmhy:show', bounds),
   bounds: bounds => ipcRenderer.invoke('fmhy:bounds', bounds),
   hide: () => ipcRenderer.invoke('fmhy:hide'),
-  nav: what => ipcRenderer.invoke('fmhy:nav', what)
+  nav: what => ipcRenderer.invoke('fmhy:nav', what),
+  popup: (url, slot, block) => ipcRenderer.invoke('fmhy:popup', { url, slot, block: block !== false }),
+  warm: () => ipcRenderer.invoke('fmhy:warm'),
+  adStatus: () => ipcRenderer.invoke('fmhy:adstatus'),
+  adSet: on => ipcRenderer.invoke('fmhy:adset', !!on),
+  adRefresh: () => ipcRenderer.invoke('fmhy:adrefresh'),
+  onAd: on('fmhy:ad')
 });
 
 contextBridge.exposeInMainWorld('phone', {
@@ -77,6 +83,27 @@ contextBridge.exposeInMainWorld('phone', {
   onEvent: on('phn:event')
 });
 
+contextBridge.exposeInMainWorld('sshTerm', {
+  state: () => ipcRenderer.invoke('ssh:state'),
+  pickKey: () => ipcRenderer.invoke('ssh:pickKey'),
+  connect: req => ipcRenderer.invoke('ssh:connect', req),
+  answer: (pid, answers) => ipcRenderer.invoke('ssh:answer', { pid, answers }),
+  input: (id, data) => ipcRenderer.invoke('ssh:input', { id, data }),
+  resize: (id, cols, rows) => ipcRenderer.invoke('ssh:resize', { id, cols, rows }),
+  close: id => ipcRenderer.invoke('ssh:close', { id }),
+  reset: () => ipcRenderer.invoke('ssh:reset'),
+  hosts: () => ipcRenderer.invoke('ssh:hosts'),
+  forget: (host, port) => ipcRenderer.invoke('ssh:forget', { host, port }),
+  ls: (id, dir) => ipcRenderer.invoke('ssh:ls', { id, dir }),
+  mkdir: (id, dir, name) => ipcRenderer.invoke('ssh:mkdir', { id, dir, name }),
+  rename: (id, dir, from, to) => ipcRenderer.invoke('ssh:rename', { id, dir, from, to }),
+  remove: (id, dir, names) => ipcRenderer.invoke('ssh:rm', { id, dir, names }),
+  download: (id, dir, names) => ipcRenderer.invoke('ssh:get', { id, dir, names }),
+  upload: (id, dir, kind) => ipcRenderer.invoke('ssh:put', { id, dir, kind }),
+  cancelTransfer: id => ipcRenderer.invoke('ssh:xcancel', { id }),
+  onEvent: on('ssh:event')
+});
+
 contextBridge.exposeInMainWorld('localVideos', {
   pick: () => ipcRenderer.invoke('vid:pick'),
   scan: dir => ipcRenderer.invoke('vid:scan', dir),
@@ -85,4 +112,72 @@ contextBridge.exposeInMainWorld('localVideos', {
   fixAudio: file => ipcRenderer.invoke('vid:fixaudio', file),
   cancelFix: () => ipcRenderer.invoke('vid:fixcancel'),
   onFix: on('vid:progress')
+});
+
+contextBridge.exposeInMainWorld('optimizer', {
+  specs: () => ipcRenderer.invoke('opt:specs'),
+  state: () => ipcRenderer.invoke('opt:state'),
+  apply: ids => ipcRenderer.invoke('opt:apply', { ids }),
+  undo: () => ipcRenderer.invoke('opt:undo'),
+  gpu: paths => ipcRenderer.invoke('opt:gpu', { paths }),
+  gpuRemove: path => ipcRenderer.invoke('opt:gpuRemove', { path }),
+  gamesGet: () => ipcRenderer.invoke('opt:gamesGet'),
+  gamesAdd: paths => ipcRenderer.invoke('opt:gamesAdd', { paths }),
+  gamesRemove: path => ipcRenderer.invoke('opt:gamesRemove', { path }),
+  gamesApply: (cfg, gpu) => ipcRenderer.invoke('opt:gamesApply', { cfg, gpu }),
+  gamesUndo: () => ipcRenderer.invoke('opt:gamesUndo')
+});
+
+contextBridge.exposeInMainWorld('chat', {
+  snapshot: () => ipcRenderer.invoke('chat:snapshot'),
+  history: (ch, before) => ipcRenderer.invoke('chat:history', { ch, before }),
+  send: (ch, text) => ipcRenderer.invoke('chat:send', { ch, text }),
+  typing: ch => ipcRenderer.invoke('chat:typing', { ch }),
+  remove: (ch, id) => ipcRenderer.invoke('chat:delete', { ch, id }),
+  channelAdd: (name, topic) => ipcRenderer.invoke('chat:channelAdd', { name, topic }),
+  channelEdit: (id, name, topic) => ipcRenderer.invoke('chat:channelEdit', { id, name, topic }),
+  channelDel: id => ipcRenderer.invoke('chat:channelDel', { id }),
+  kick: uid => ipcRenderer.invoke('chat:kick', { uid }),
+  settings: () => ipcRenderer.invoke('chat:settings'),
+  setSettings: s => ipcRenderer.invoke('chat:setSettings', s),
+  serverStart: (port, lan, tunnel) => ipcRenderer.invoke('chat:serverStart', { port, lan: !!lan, tunnel: !!tunnel }),
+  serverStop: () => ipcRenderer.invoke('chat:serverStop'),
+  tunnelStart: () => ipcRenderer.invoke('chat:tunnelStart'),
+  tunnelStop: () => ipcRenderer.invoke('chat:tunnelStop'),
+  tunnelPick: () => ipcRenderer.invoke('chat:tunnelPick'),
+  remoteStatus: () => ipcRenderer.invoke('chat:remoteStatus'),
+  remoteJoin: (address, name, password) => ipcRenderer.invoke('chat:remoteJoin', { address, name, password }),
+  remoteLeave: () => ipcRenderer.invoke('chat:remoteLeave'),
+  remoteSnapshot: () => ipcRenderer.invoke('chat:remoteSnapshot'),
+  remoteHistory: (ch, before) => ipcRenderer.invoke('chat:remoteHistory', { ch, before }),
+  remoteSend: (ch, text) => ipcRenderer.invoke('chat:remoteSend', { ch, text }),
+  remoteTyping: ch => ipcRenderer.invoke('chat:remoteTyping', { ch }),
+  remoteDelete: (ch, id) => ipcRenderer.invoke('chat:remoteDelete', { ch, id }),
+  onRemoteEvent: on('chat:remoteEvent'),
+  onEvent: on('chat:event')
+});
+
+contextBridge.exposeInMainWorld('mumble', {
+  status: () => ipcRenderer.invoke('mumble:status'),
+  pick: kind => ipcRenderer.invoke('mumble:pick', { kind }),
+  setPassword: password => ipcRenderer.invoke('mumble:setPassword', { password }),
+  serverStart: (port, lan, password) => ipcRenderer.invoke('mumble:serverStart', { port, lan: !!lan, password }),
+  serverStop: () => ipcRenderer.invoke('mumble:serverStop'),
+  setOwnerPassword: password => ipcRenderer.invoke('mumble:setOwnerPassword', { password }),
+  open: name => ipcRenderer.invoke('mumble:open', { name })
+});
+
+
+// App lock. The page asks once, before it is drawn, whether the app starts locked, so nothing flashes up first.
+let lockStart = false;
+try { const r = ipcRenderer.sendSync('lock:initial'); lockStart = !!(r && r.startLocked); } catch {}
+contextBridge.exposeInMainWorld('appLock', {
+  startLocked: lockStart,
+  state: () => ipcRenderer.invoke('lock:state'),
+  set: (password, current) => ipcRenderer.invoke('lock:set', { password, current }),
+  remove: password => ipcRenderer.invoke('lock:remove', { password }),
+  lock: () => ipcRenderer.invoke('lock:lock'),
+  unlock: password => ipcRenderer.invoke('lock:unlock', { password }),
+  auto: minutes => ipcRenderer.invoke('lock:auto', { minutes }),
+  onChange: on('lock:changed')
 });

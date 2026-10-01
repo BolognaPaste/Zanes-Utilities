@@ -165,13 +165,22 @@ async function handle(files){
    }
   }catch(e){render({name:f.name,facts:[],findings:[],err:e.message})}
  }
+ out.scrollIntoView({block:'start'});
 }
 document.querySelectorAll('.nv').forEach(b=>b.onclick=()=>{
  const own=b.closest('.ng');document.querySelectorAll('nav .ng').forEach(g=>{const inG=g===own;g.classList.toggle('has-cur',inG);if(inG)g.open=true});
  document.querySelectorAll('.nv').forEach(x=>x===b?x.setAttribute('aria-current','page'):x.removeAttribute('aria-current'));
  document.querySelectorAll('.pg').forEach(p=>{p.hidden=p.id!=='p-'+b.dataset.p});
  if(b.dataset.p==='hist')hrender();if(b.dataset.p==='home')homeRender();
- document.querySelector('main').classList.toggle('wide',b.dataset.p==='next'||b.dataset.p==='media'||b.dataset.p==='games'||b.dataset.p==='fmhy'||b.dataset.p==='vault'||b.dataset.p==='phone');document.querySelector('main').classList.remove('full');document.querySelector('main').classList.toggle('fmw',b.dataset.p==='fmhy'||b.dataset.p==='vault');if(b.dataset.p==='fmhy'){if(window.fmEnter)fmEnter()}else if(window.fmPause)fmPause();if(b.dataset.p==='media')jopen();else if(window.lvPause)lvPause();if(b.dataset.p==='games'){if(window.gmEnter)gmEnter()}else if(window.gmPause)gmPause();if(b.dataset.p==='phone'){if(window.phEnter)phEnter()}else if(window.phPause)phPause();closeMenu();
+ document.querySelector('main').classList.toggle('wide',b.dataset.p==='next'||b.dataset.p==='media'||b.dataset.p==='games'||b.dataset.p==='fmhy'||b.dataset.p==='vault'||b.dataset.p==='phone'||b.dataset.p==='ssh'||b.dataset.p==='crash'||b.dataset.p==='hist'||b.dataset.p==='opt'||b.dataset.p==='drv'||b.dataset.p==='settings'||b.dataset.p==='test');document.querySelector('main').classList.remove('full');document.querySelector('main').classList.toggle('fmw',b.dataset.p==='fmhy'||b.dataset.p==='vault');if(b.dataset.p==='fmhy'){if(window.fmEnter)fmEnter()}else if(window.fmPause)fmPause();if(b.dataset.p==='media')jopen();else if(window.lvPause)lvPause();if(b.dataset.p==='games'){if(window.gmEnter)gmEnter()}else if(window.gmPause)gmPause();if(b.dataset.p==='phone'){if(window.phEnter)phEnter()}else if(window.phPause)phPause();closeMenu();
+});
+
+/* Driver updater: sidebar buttons scroll the main pane to a section */
+document.querySelectorAll('#p-drv [data-j]').forEach(b=>b.onclick=()=>{
+ const t=document.getElementById(b.dataset.j);if(!t)return;
+ if(t.tagName==='DETAILS')t.open=true;
+ t.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+ document.querySelectorAll('#p-drv [data-j]').forEach(x=>x.removeAttribute('data-on'));b.dataset.on='1';
 });
 
 document.querySelectorAll('[data-go]').forEach(c=>c.onclick=()=>document.querySelector('.nv[data-p="'+c.dataset.go+'"]').click());
@@ -342,7 +351,7 @@ async function wipeIdb(){
 }
 $('#dd-x').onclick=()=>{
  $('#dd-m').hidden=true;
- dialog('Delete all data?','<p class="fx"><b>Are you sure you want to delete all data?</b></p><p class="fx">This permanently deletes your game library, past scans, settings, remembered folders, shredding stats, Jellyfin sign-in, Coolmath and FMHY site data, and cached video thumbnails. It cannot be undone.</p><p class="fx">Your vault files, downloaded installers and any files you extracted are not touched.</p><div class="bar"><button type="button" class="alt" data-x>Cancel</button><button type="button" id="dwy">Yes, delete all data</button><label class="fx" style="display:inline-flex;align-items:center;gap:3px;margin:0;font-size:.75rem"><input type="checkbox" id="dwa" style="margin:0;width:auto;padding:0">Also delete converted audio</label></div>');
+ dialog('Delete all data?','<p class="fx"><b>Are you sure you want to delete all data?</b></p><p class="fx">This permanently deletes your game library, past scans, settings, remembered folders, shredding stats, Jellyfin sign-in, Coolmath and FMHY site data, and cached video thumbnails. It cannot be undone.</p><p class="fx">Your vault files, downloaded installers and any files you extracted are not touched. Your app lock password is kept too.</p><div class="bar"><button type="button" class="alt" data-x>Cancel</button><button type="button" id="dwy">Yes, delete all data</button><label class="fx" style="display:inline-flex;align-items:center;gap:3px;margin:0;font-size:.75rem"><input type="checkbox" id="dwa" style="margin:0;width:auto;padding:0">Also delete converted audio</label></div>');
  $('#dwy').onclick=async()=>{
   const b=$('#dwy'),wa=$('#dwa').checked;b.disabled=true;$('#dwa').disabled=true;b.textContent='Deleting…';
   try{

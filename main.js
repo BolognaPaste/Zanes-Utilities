@@ -1,7 +1,8 @@
 // Keep compiled code for this app's own files on disk, so later launches skip parsing them (Node 22+; ignored if missing).
 try { const m = require('module'); if (typeof m.enableCompileCache === 'function') m.enableCompileCache(); } catch {}
 
-const { app, BrowserWindow, WebContentsView, Menu, session, ipcMain, dialog, shell, net, nativeImage } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, session, ipcMain, dialog, shell, net, nativeImage, webContents, powerMonitor } = require('electron');
+const appLock = require('./lock-ipc');
 const path = require('path');
 const fs = require('fs/promises');
 const { existsSync } = require('fs');
@@ -26,9 +27,13 @@ else app.on('second-instance', () => { const w = getWin(); if (w) { if (w.isMini
 // Every IPC handler goes through this, so only the app's own top-level page can call them. Frames with other
 // content (Jellyfin, games) and the FMHY / Coolmath views never get the preload bridge, and this is a second lock.
 const trusted = e => !!mainWin && !mainWin.isDestroyed() && e.sender === mainWin.webContents && !!e.senderFrame && e.senderFrame === e.sender.mainFrame;
+// While the app is locked (see lock-ipc.js) every request is refused except the lock ones, and 'fmhy:hide', which
+// only takes the FMHY view off screen so the lock screen is not covered by it.
+const openWhenLocked = channel => channel.startsWith('lock:') || channel === 'fmhy:hide';
 const ipc = {
   handle: (channel, fn) => ipcMain.handle(channel, (e, ...args) => {
     if (!trusted(e)) throw new Error('Blocked: this request did not come from the app window.');
+    if (appLock.isLocked() && !openWhenLocked(channel)) throw new Error('The app is locked.');
     return fn(e, ...args);
   })
 };
@@ -36,14 +41,19 @@ const ipc = {
 // below), so the window starts loading while this file's modules are still being read. They are all registered
 // in the same step as the window is created, before the page can send its first request.
 function registerModules() {
+  appLock.register(ipc, getWin, { app, ipcMain, BrowserWindow, webContents, powerMonitor });
   require('./driver-ipc').register(ipc, getWin);
   require('./vendor-ipc').register(ipc, getWin, { app, net, shell });
   require('./shred-ipc').register(ipc, getWin, { dialog });
   require('./vault-ipc').register(ipc, getWin, { dialog });
   require('./games-ipc').register(ipc, getWin, { app, net, session, shell, BrowserWindow });
-  require('./fmhy-ipc').register(ipc, getWin, { session, shell, WebContentsView });
+  require('./fmhy-ipc').register(ipc, getWin, { session, shell, WebContentsView, BrowserWindow, app });
   require('./video-ipc').register(ipc, getWin, { dialog, shell, app, nativeImage });
   require('./phone-ipc').register(ipc, getWin, { app, dialog, shell });
+  require('./ssh-ipc').register(ipc, getWin, { app, dialog });
+  require('./optimizer-ipc').register(ipc, getWin, { app });
+  require('./chat-ipc').register(ipc, getWin, { app, dialog });
+  require('./mumble-ipc').register(ipc, getWin, { app, dialog });
 }
 
 const okPath = p => typeof p === 'string' && path.isAbsolute(p);
@@ -99,16 +109,17 @@ ipc.handle('efs:text', async (_e, p) => {
 });
 
 // "Delete all data" on the Home page: clears the app's browser storage and caches (main window, Coolmath
-// and FMHY windows) and the video thumbnail cache (plus the converted-audio cache when asked), then reloads the page so nothing
+// and FMHY windows), the video thumbnail cache (plus the converted-audio cache when asked) and the list of SSH servers you
+// chose to trust, then reloads the page so nothing
 // in memory writes the data back. Vault files, shredded files and installers you downloaded are yours and are left alone.
 ipc.handle('app:wipe', async (e, opts) => {
   const failed = [];
   const step = async (label, fn) => { try { await fn(); } catch { failed.push(label); } };
   const clearSes = async ses => { await ses.clearStorageData(); await ses.clearCache(); };
   await step('app storage', () => clearSes(session.defaultSession));
-  for (const part of ['persist:coolmath', 'persist:fmhy']) await step(part, () => clearSes(session.fromPartition(part)));
+  for (const part of ['persist:coolmath', 'persist:fmhy', 'persist:fmhy-popup']) await step(part, () => clearSes(session.fromPartition(part)));
   // Converted audio copies are only removed when the person ticked the option.
-  for (const d of ['video-thumbs'].concat(opts && opts.audio ? ['video-audio-fixed'] : [])) await step(d, () => fs.rm(path.join(app.getPath('userData'), d), { recursive: true, force: true }));
+  for (const d of ['video-thumbs', 'ssh-known-hosts.json'].concat(opts && opts.audio ? ['video-audio-fixed'] : [])) await step(d, () => fs.rm(path.join(app.getPath('userData'), d), { recursive: true, force: true }));
   if (failed.length) return { ok: false, error: 'Some data could not be deleted: ' + failed.join(', ') + '.' };
   const win = BrowserWindow.fromWebContents(e.sender);
   setTimeout(() => { if (win && !win.isDestroyed()) win.webContents.reloadIgnoringCache(); }, 100);
