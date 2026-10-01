@@ -508,7 +508,10 @@ dz.addEventListener('drop',e=>{if(e.dataTransfer.files.length)handle([...e.dataT
 /* Media player: shows your Jellyfin server's own web interface. Only the server address is saved. */
 const JK='gca-jellyfin-last';
 try{localStorage.removeItem('gca-jellyfin');localStorage.removeItem('gca-jellyfin-device')}catch(e){}
-let J=(()=>{try{return localStorage.getItem(JK)||''}catch(e){return''}})();
+// Only a plain http(s) server address is ever accepted. javascript:, data:, file: and the like are dropped,
+// because this address ends up in an iframe src and a link href.
+const jsafe=v=>{try{const x=new URL(String(v).trim());return/^https?:$/.test(x.protocol)&&!x.username&&!x.password?x.origin+x.pathname.replace(/\/+$/,''):''}catch(e){return''}};
+let J=jsafe((()=>{try{return localStorage.getItem(JK)||''}catch(e){return''}})());
 function jview(load){
  const f=$('#jfr'),u=J?J+'/web/index.html':'';
  $('#jform').hidden=!!J;$('#lv').hidden=!!J;$('#japp').hidden=!J;if(J){if(window.lvPause)lvPause()}else if(!$('#p-media').hidden&&window.lvEnter)lvEnter();
@@ -527,6 +530,8 @@ $('#jform').onsubmit=e=>{
  let u=$('#ju').value.trim().replace(/\/+$/,'').replace(/\/web(\/.*)?$/i,'');if(!u)return;
  if(!/^https?:\/\//i.test(u))u='http://'+u;
  const m=$('#jlm');
+ u=jsafe(u);
+ if(!u){m.textContent='That does not look like a valid server address.';m.hidden=false;return}
  if(location.protocol==='https:'&&/^http:/i.test(u)){m.textContent='This page is loaded over HTTPS, so the browser blocks plain http:// servers. Use an https:// address, or open this file from your computer.';m.hidden=false;return}
  m.hidden=true;J=u;try{localStorage.setItem(JK,u)}catch(x){}
  jview(true);
