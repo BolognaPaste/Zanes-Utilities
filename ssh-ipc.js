@@ -8,6 +8,7 @@
 //  - Passwords and key passphrases are used for the one connection and are never written to disk.
 //  - Only a real private key file can be read as a key (it must start with a key header and be under 64 KB).
 const fs = require('fs');
+const secure = require('./secure-store');
 const fsp = fs.promises;
 const os = require('os');
 const path = require('path');
@@ -57,13 +58,10 @@ function register(ipcMain, getWin, { app, dialog }) {
   const sf = require('./ssh-sftp').register(ipcMain, getWin, { dialog, send, getSession: id => sessions.get(id) });
 
   async function readHosts() {
-    try { const o = JSON.parse(await fsp.readFile(khFile(), 'utf8')); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch { return {}; }
+    try { const o = JSON.parse(await secure.readText(khFile())); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch { return {}; }
   }
   async function writeHosts(o) {
-    const f = khFile(), tmp = f + '.tmp';
-    await fsp.mkdir(path.dirname(f), { recursive: true });
-    await fsp.writeFile(tmp, JSON.stringify(o, null, 1), 'utf8');
-    await fsp.rename(tmp, f);
+    await secure.writeText(khFile(), JSON.stringify(o, null, 1));       // encrypted (secure-store.js)
   }
 
   function flush(s) {

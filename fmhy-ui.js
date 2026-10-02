@@ -1,5 +1,6 @@
 // FMHY page: fmhy.net shown inside the page area, with back / forward / home buttons and four
 // custom quick-link buttons (set on the Settings page) that open pop-out pages with ads and trackers blocked.
+// Links on the fmhy.net pages that lead to other sites open in the same kind of pop-out window.
 // Talks to fmhy-ipc.js through window.fmhy (see preload.js). Uses $ from index.html.
 // The site is drawn by the main process over #fm-host, so this file only reports where that box is.
 (function () {
@@ -176,7 +177,7 @@
     requestAnimationFrame(() => {
       if (!on) return;
       const b = box(); last = [b.x, b.y, b.width, b.height].join();
-      api.show(b);
+      api.show(Object.assign({ block: blockOn() }, b));   // also tells the main process whether links from the site get ad blocking
     });
     if (window.ResizeObserver && !ro) { ro = new ResizeObserver(sync); ro.observe(host); }
     clearInterval(timer); timer = setInterval(sync, 300);   // also catches the menu opening or closing

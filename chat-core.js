@@ -8,6 +8,7 @@
 // each channel, the people who joined (only a SHA-256 hash of their login token, never the token itself) and a
 // salted scrypt hash of the join password if one is set. Nothing is sent anywhere by this file.
 const fs = require('fs');
+const secure = require('./secure-store');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -74,7 +75,7 @@ class ChatHub {
   _load() {
     const d = fresh();
     let b;
-    try { b = JSON.parse(fs.readFileSync(this.file, 'utf8')); } catch { return d; }
+    try { b = JSON.parse(secure.readTextSync(this.file)); } catch { return d; }
     if (!b || typeof b !== 'object') return d;
     if (typeof b.id === 'string' && /^[0-9a-f]{16}$/.test(b.id)) d.id = b.id;
     if (typeof b.name === 'string') d.name = cleanName(b.name, LIMITS.serverName) || d.name;
@@ -123,10 +124,7 @@ class ChatHub {
   flush() {
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     try {
-      fs.mkdirSync(path.dirname(this.file), { recursive: true });
-      const tmp = this.file + '.tmp';
-      fs.writeFileSync(tmp, JSON.stringify(this.d));
-      fs.renameSync(tmp, this.file);
+      secure.writeTextSync(this.file, JSON.stringify(this.d));          // encrypted, written whole then swapped in (secure-store.js)
     } catch { /* a failed save must never take the chat down; the next change tries again */ }
   }
 

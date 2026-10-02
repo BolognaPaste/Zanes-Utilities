@@ -26,7 +26,15 @@ const URLS = LISTS.map(l => l.url);
 const MAX_AGE_MS = 7 * 24 * 3600 * 1000;   // re-download the lists after a week
 const FETCH_TIMEOUT_MS = 30000;
 
-const timedFetch = (url, opts) => fetch(url, Object.assign({}, opts, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }));
+// Downloads go through Electron's own network stack (net.fetch) rather than Node's built-in fetch. Node's fetch
+// (undici) can throw an uncaught "assert(!this.paused)" error in the main process when a server closes the
+// connection in the middle of a big list download, which is what the Update now button used to trigger.
+const timedFetch = (url, opts) => {
+  const o = Object.assign({}, opts, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  let f = null;
+  try { f = require('electron').net; } catch {}
+  return f && f.fetch ? f.fetch(url, o) : fetch(url, o);
+};
 const exists = async p => { try { return await fs.stat(p); } catch { return null; } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const cacheFile = app => path.join(app.getPath('userData'), 'adblock-engine.bin');

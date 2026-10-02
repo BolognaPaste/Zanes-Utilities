@@ -1,8 +1,9 @@
 // Keep compiled code for this app's own files on disk, so later launches skip parsing them (Node 22+; ignored if missing).
 try { const m = require('module'); if (typeof m.enableCompileCache === 'function') m.enableCompileCache(); } catch {}
 
-const { app, BrowserWindow, WebContentsView, Menu, session, ipcMain, dialog, shell, net, nativeImage, webContents, powerMonitor } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, session, ipcMain, dialog, shell, net, nativeImage, webContents, powerMonitor, safeStorage } = require('electron');
 const appLock = require('./lock-ipc');
+const secure = require('./secure-store');
 const path = require('path');
 const fs = require('fs/promises');
 const { existsSync } = require('fs');
@@ -42,6 +43,8 @@ const ipc = {
 // in the same step as the window is created, before the page can send its first request.
 function registerModules() {
   appLock.register(ipc, getWin, { app, ipcMain, BrowserWindow, webContents, powerMonitor });
+  // Encrypted storage comes first: the modules below read their saved files through it (see secure-store.js).
+  secure.register(ipcMain, ipc, { app, safeStorage, trusted, isLocked: appLock.isLocked });
   require('./driver-ipc').register(ipc, getWin);
   require('./vendor-ipc').register(ipc, getWin, { app, net, shell });
   require('./shred-ipc').register(ipc, getWin, { dialog });
@@ -120,6 +123,7 @@ ipc.handle('app:wipe', async (e, opts) => {
   for (const part of ['persist:coolmath', 'persist:fmhy', 'persist:fmhy-popup']) await step(part, () => clearSes(session.fromPartition(part)));
   // Converted audio copies are only removed when the person ticked the option.
   for (const d of ['video-thumbs', 'ssh-known-hosts.json'].concat(opts && opts.audio ? ['video-audio-fixed'] : [])) await step(d, () => fs.rm(path.join(app.getPath('userData'), d), { recursive: true, force: true }));
+  secure.wipe();   // the encrypted copy of the page's saved data (the page reloads below, so nothing writes it back)
   if (failed.length) return { ok: false, error: 'Some data could not be deleted: ' + failed.join(', ') + '.' };
   const win = BrowserWindow.fromWebContents(e.sender);
   setTimeout(() => { if (win && !win.isDestroyed()) win.webContents.reloadIgnoringCache(); }, 100);

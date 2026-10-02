@@ -3,6 +3,7 @@
 // setting. Values it changes are saved in userData/optimizer-backup.json first, so "Undo" can put them back.
 const { spawn, execFile } = require('child_process');
 const fs = require('fs');
+const secure = require('./secure-store');
 const path = require('path');
 
 const PS_ARGS = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass'];
@@ -97,8 +98,8 @@ function ueEdit(text, c) {
 
 function register(ipcMain, getWin, { app }) {
   const file = () => path.join(app.getPath('userData'), 'optimizer-backup.json');
-  const load = () => { try { const b = JSON.parse(fs.readFileSync(file(), 'utf8')); return b && typeof b === 'object' ? b : {}; } catch { return {}; } };
-  const save = b => { b.regs = b.regs || {}; fs.writeFileSync(file(), JSON.stringify(b)); };
+  const load = () => { try { const b = JSON.parse(secure.readTextSync(file())); return b && typeof b === 'object' ? b : {}; } catch { return {}; } };
+  const save = b => { b.regs = b.regs || {}; secure.writeTextSync(file(), JSON.stringify(b)); };
   let busy = false;
   const guard = fn => async (_e, req) => {
     if (process.platform !== 'win32') return { ok: false, error: 'The Game optimizer only works on Windows.' };
@@ -205,10 +206,10 @@ function register(ipcMain, getWin, { app }) {
   const gfile = () => path.join(app.getPath('userData'), 'optimizer-games.json');
   const gdir = () => path.join(app.getPath('userData'), 'optimizer-games');
   const gload = () => {
-    try { const b = JSON.parse(fs.readFileSync(gfile(), 'utf8')); return { games: Array.isArray(b.games) ? b.games.filter(p => typeof p === 'string' && EXE.test(p)) : [], bak: b.bak && typeof b.bak === 'object' ? b.bak : {} }; }
+    try { const b = JSON.parse(secure.readTextSync(gfile())); return { games: Array.isArray(b.games) ? b.games.filter(p => typeof p === 'string' && EXE.test(p)) : [], bak: b.bak && typeof b.bak === 'object' ? b.bak : {} }; }
     catch { return { games: [], bak: {} }; }
   };
-  const gsave = b => { fs.mkdirSync(path.dirname(gfile()), { recursive: true }); fs.writeFileSync(gfile(), JSON.stringify(b)); };
+  const gsave = b => { secure.writeTextSync(gfile(), JSON.stringify(b)); };
   const gview = b => ({ games: b.games.map(p => { const files = ueFiles(p); return { path: p, exists: fs.existsSync(p), files: files.length, applied: files.some(f => b.bak[sha(f)]) }; }) });
 
   ipcMain.handle('opt:gamesGet', guard(async () => ({ ok: true, data: gview(gload()) })));

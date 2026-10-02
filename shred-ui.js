@@ -36,7 +36,7 @@
 
   /* Shredder page */
   const na = $('#sh-na'), addF = $('#sh-files'), addD = $('#sh-folder'), list = $('#sh-list');
-  const go = $('#sh-go'), clr = $('#sh-clear'), stop = $('#sh-stop'), res = $('#sh-res');
+  const hint = $('#sh-hint'), go = $('#sh-go'), clr = $('#sh-clear'), stop = $('#sh-stop'), res = $('#sh-res');
   const api = window.shredder;
   if (!api || !api.run) {
     na.hidden = false;
@@ -48,10 +48,13 @@
 
   function render() {
     list.innerHTML = items.length
-      ? items.map((it, i) => '<div class="g"><span><b>' + esc(it.path.split(/[\\/]/).filter(Boolean).pop() || it.path) + '</b><small>' +
-          (it.kind === 'folder' ? 'Folder, including everything inside it' : 'File') + ' \u00b7 ' + esc(it.path) + '</small></span>' +
-          '<button type="button" class="alt" data-rm="' + i + '"' + (busy ? ' disabled' : '') + '>Remove</button></div>').join('')
-      : '<div class="empty"><b>Nothing selected</b><span class="fx">Add files or folders to shred. You confirm once more before anything is destroyed.</span></div>';
+      ? items.map((it, i) => '<div class="it" title="' + esc(it.path) + '"><span><b>' + esc(it.path.split(/[\\/]/).filter(Boolean).pop() || it.path) + '</b><small>' +
+          (it.kind === 'folder' ? 'Folder' : 'File') + ' \u00b7 ' + esc(it.path) + '</small></span>' +
+          '<button type="button" data-rm="' + i + '" aria-label="Remove from list" title="Remove from list"' + (busy ? ' disabled' : '') + '>\u00d7</button></div>').join('')
+      : '<p class="none">Nothing selected</p>';
+    hint.textContent = items.length
+      ? items.length + ' item' + (items.length === 1 ? '' : 's') + ' ready. Folders are shredded with everything inside them. You confirm once more before anything is destroyed.'
+      : 'Use Add files or Add folders in the sidebar to choose what to shred.';
     go.textContent = 'Shred ' + items.length + ' item' + (items.length === 1 ? '' : 's');
     go.disabled = busy || !items.length;
     clr.disabled = busy || !items.length;

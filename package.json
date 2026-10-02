@@ -14,6 +14,9 @@
       "en-US"
     ],
     "copyright": "Copyright © Zane",
+    "electronFuses": {
+      "enableCookieEncryption": true
+    },
     "productName": "Zanes Utilities",
     "files": [
       "main.js",
@@ -56,6 +59,8 @@
       "chat.css",
       "test-ui.js",
       "efs-shim.js",
+      "secure-store.js",
+      "secure-ls.js",
       "index.html",
       "bg.jpg",
       "build/icon.png",

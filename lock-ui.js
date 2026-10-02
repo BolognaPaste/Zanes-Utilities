@@ -21,7 +21,44 @@
     b.setAttribute('data-on', '1');
     const t = q('#' + b.dataset.sj);
     if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    held = true;                    // keep the clicked one lit while the page glides there
   }));
+
+  // Settings page: as the page on the right scrolls, the left column lights up the section that is in view.
+  let held = false;
+  (function spy() {
+    const body = q('#p-settings .sx-body');
+    if (!body) return;
+    const btns = Array.from(document.querySelectorAll('#p-settings .sx-act[data-sj]'));
+    const pairs = () => btns.map(b => ({ b, el: q('#' + b.dataset.sj) })).filter(p => p.el);
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      if (held) return;
+      const ps = pairs();
+      if (!ps.length) return;
+      const top = body.getBoundingClientRect().top;
+      let cur = ps[0];
+      ps.forEach(p => { if (p.el.getBoundingClientRect().top - top <= 80) cur = p; });
+      if (body.scrollTop + body.clientHeight >= body.scrollHeight - 2) cur = ps[ps.length - 1];
+      btns.forEach(x => { if (x === cur.b) x.setAttribute('data-on', '1'); else x.removeAttribute('data-on'); });
+    };
+    body.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
+    ['wheel', 'touchmove', 'keydown', 'pointerdown'].forEach(ev => body.addEventListener(ev, () => { held = false; }, { passive: true }));
+  })();
+
+  // Settings page: whether the saved data is being encrypted (secure-store.js).
+  (function dataProtection() {
+    const el = q('#dp-status');
+    if (!el) return;
+    const ss = window.secureStore;
+    if (!ss || !ss.status) { el.textContent = 'Data protection only works in the Zane\'s Utilities desktop app.'; return; }
+    ss.status().then(r => {
+      if (r && r.on && r.method === 'dpapi') el.textContent = 'Active. Saved data is encrypted with ' + r.algo + '. The key is protected by your Windows account.';
+      else if (r && r.on) el.textContent = 'Active, but Windows could not protect the key on this PC, so it is stored in a private file next to the data. The data is still encrypted.';
+      else el.textContent = 'Not active: encryption could not start, so data is saved the normal way. Restart the app to try again.';
+    }).catch(() => { el.textContent = 'Could not check.'; });
+  })();
 
   if (!api) {                       // opened outside the desktop app: nothing to lock
     if (nb) nb.hidden = true;

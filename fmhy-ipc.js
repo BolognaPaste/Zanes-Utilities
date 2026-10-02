@@ -1,17 +1,21 @@
 // FMHY backend: shows fmhy.net inside the app window, on the FMHY page.
 // The site runs in a WebContentsView laid over the page's placeholder area (the page reports where
 // that area is). The view has no preload script, its own storage, refuses every permission except
-// fullscreen, and can only navigate within fmhy.net. Links to other sites open in the default browser.
+// fullscreen, and can only navigate within fmhy.net. Links to other sites open in an in-app pop-out
+// window (the same kind the custom buttons use, with ads and trackers blocked).
 const FMHY_HOST = /^([a-z0-9-]+\.)*fmhy\.net$/i;
 const HOME = 'https://fmhy.net/';
 const adblock = require('./adblock');
 
 function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWindow, app }) {
   let view = null, attached = false;
-  const popups = new Map();   // button slot -> its pop-out window
+  const popups = new Map();   // button slot (or 'link') -> its pop-out window
+  let blockPref = true;       // whether the ad blocker is on (the Settings switch); the page reports it
 
   const inside = u => { try { const x = new URL(u); return x.protocol === 'https:' && FMHY_HOST.test(x.hostname); } catch { return false; } };
   const out = u => { if (/^https?:/i.test(u)) shell.openExternal(u); };
+  // A link on fmhy.net that leads to another site: opens in the shared 'link' pop-out window inside the app.
+  const pop = u => { const n = web(u); if (n) openPopup(n, 'link', blockPref).catch(() => {}); };
   const rect = b => {
     const n = k => Math.max(0, Math.round(Number(b && b[k]) || 0));
     return { x: n('x'), y: n('y'), width: n('width'), height: n('height') };
@@ -26,9 +30,9 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     }
     view = new WebContentsView({ webPreferences: { partition: 'persist:fmhy', contextIsolation: true, nodeIntegration: false, sandbox: true } });
     const wc = view.webContents;
-    wc.setWindowOpenHandler(({ url }) => { if (inside(url)) wc.loadURL(url); else out(url); return { action: 'deny' }; });
-    wc.on('will-navigate', (e, url) => { if (!inside(url)) { e.preventDefault(); out(url); } });
-    wc.on('will-redirect', (e, url) => { if (!inside(url)) { e.preventDefault(); out(url); } });
+    wc.setWindowOpenHandler(({ url }) => { if (inside(url)) wc.loadURL(url); else pop(url); return { action: 'deny' }; });
+    wc.on('will-navigate', (e, url) => { if (!inside(url)) { e.preventDefault(); pop(url); } });
+    wc.on('will-redirect', (e, url) => { if (!inside(url)) { e.preventDefault(); pop(url); } });
     wc.loadURL(HOME);
   }
 
@@ -36,6 +40,7 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
   ipcMain.handle('fmhy:show', (_e, b) => {
     const win = getWin();
     if (!win || win.isDestroyed()) return { ok: false, error: 'The app window is not available.' };
+    if (b && typeof b.block === 'boolean') blockPref = b.block;
     if (!view) make();
     if (!attached) { win.contentView.addChildView(view); attached = true; }
     view.setBounds(rect(b));
@@ -96,15 +101,17 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
   // Settings page ("Ad blocker"): what the blocker has loaded and cached, a switch that takes effect straight
   // away, and a button that downloads the lists again.
   ipcMain.handle('fmhy:adstatus', async () => { popupSession(); return blocker.status(); });
-  ipcMain.handle('fmhy:adset', async (_e, on) => { popupSession(); await blocker.set(!!on, 1); return blocker.status(); });
+  ipcMain.handle('fmhy:adset', async (_e, on) => { popupSession(); blockPref = !!on; await blocker.set(!!on, 1); return blocker.status(); });
   ipcMain.handle('fmhy:adrefresh', async () => { popupSession(); await blocker.refresh(); return blocker.status(); });
 
-  ipcMain.handle('fmhy:popup', async (_e, a) => {
+  // Opens `rawUrl` in a pop-out window. `key` is the button slot (0 to 3), 'link' for pages opened from fmhy.net,
+  // or null for a window of its own. A window that already exists for the key is reused and brought to the front.
+  async function openPopup(rawUrl, key, block) {
     const win = getWin();
     if (!win || win.isDestroyed()) return { ok: false, error: 'The app window is not available.' };
-    const url = web(a && a.url);
+    const url = web(rawUrl);
     if (!url) return { ok: false, error: 'That is not a valid web address.' };
-    const slot = a && Number.isInteger(a.slot) && a.slot >= 0 && a.slot < 4 ? a.slot : -1;
+    blockPref = !!block;
 
     // Ad / tracker blocking (uBlock Origin filter lists) is on unless the Settings switch turned it off. It is
     // switched on before the page is requested, so the very first request is already filtered. A problem here
@@ -112,14 +119,14 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     popupSession();
     let note = '';
     try {
-      const r = await blocker.set(!(a && a.block === false));
+      const r = await blocker.set(!!block);
       if (r.on && !r.ready) note = 'The ad blocker is still loading its filter lists, so this page opened without it. It switches on by itself in a moment.';
       else if (r.on && r.error) note = 'The ad blocker could not load its filter lists (' + r.error + '), so this page opened without it.';
     } catch (err) { note = 'The ad blocker could not start, so this page opened without it.'; }
     if (!win || win.isDestroyed()) return { ok: false, error: 'The app window is not available.' };
 
-    let p = popups.get(slot);
-    if (slot >= 0 && p && !p.isDestroyed()) {
+    let p = key !== null ? popups.get(key) : null;
+    if (p && !p.isDestroyed()) {
       if (p.webContents.getURL() !== url) p.loadURL(url).catch(() => {});
       if (p.isMinimized()) p.restore();
       p.focus();
@@ -149,9 +156,14 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     });
     p.on('app-command', (_e, c) => { if (c === 'browser-backward') go(-1); else if (c === 'browser-forward') go(1); });
     p.on('close', flush);
-    if (slot >= 0) { popups.set(slot, p); p.on('closed', () => { if (popups.get(slot) === p) popups.delete(slot); }); }
+    if (key !== null) { popups.set(key, p); p.on('closed', () => { if (popups.get(key) === p) popups.delete(key); }); }
     p.loadURL(url).catch(() => {});
     return { ok: true, note };
+  }
+
+  ipcMain.handle('fmhy:popup', (_e, a) => {
+    const slot = a && Number.isInteger(a.slot) && a.slot >= 0 && a.slot < 4 ? a.slot : null;
+    return openPopup(a && a.url, slot, !(a && a.block === false));
   });
 
   ipcMain.handle('fmhy:nav', (_e, what) => {

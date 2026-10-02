@@ -172,7 +172,7 @@ document.querySelectorAll('.nv').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.nv').forEach(x=>x===b?x.setAttribute('aria-current','page'):x.removeAttribute('aria-current'));
  document.querySelectorAll('.pg').forEach(p=>{p.hidden=p.id!=='p-'+b.dataset.p});
  if(b.dataset.p==='hist')hrender();if(b.dataset.p==='home')homeRender();
- document.querySelector('main').classList.toggle('wide',b.dataset.p==='next'||b.dataset.p==='media'||b.dataset.p==='games'||b.dataset.p==='fmhy'||b.dataset.p==='vault'||b.dataset.p==='phone'||b.dataset.p==='ssh'||b.dataset.p==='crash'||b.dataset.p==='hist'||b.dataset.p==='opt'||b.dataset.p==='drv'||b.dataset.p==='settings'||b.dataset.p==='test');document.querySelector('main').classList.remove('full');document.querySelector('main').classList.toggle('fmw',b.dataset.p==='fmhy'||b.dataset.p==='vault');if(b.dataset.p==='fmhy'){if(window.fmEnter)fmEnter()}else if(window.fmPause)fmPause();if(b.dataset.p==='media')jopen();else if(window.lvPause)lvPause();if(b.dataset.p==='games'){if(window.gmEnter)gmEnter()}else if(window.gmPause)gmPause();if(b.dataset.p==='phone'){if(window.phEnter)phEnter()}else if(window.phPause)phPause();closeMenu();
+ document.querySelector('main').classList.toggle('wide',b.dataset.p==='next'||b.dataset.p==='media'||b.dataset.p==='games'||b.dataset.p==='fmhy'||b.dataset.p==='vault'||b.dataset.p==='phone'||b.dataset.p==='ssh'||b.dataset.p==='shred'||b.dataset.p==='crash'||b.dataset.p==='hist'||b.dataset.p==='opt'||b.dataset.p==='drv'||b.dataset.p==='settings'||b.dataset.p==='test'||b.dataset.p==='home');document.querySelector('main').classList.remove('full');document.querySelector('main').classList.toggle('fmw',b.dataset.p==='fmhy'||b.dataset.p==='vault');if(b.dataset.p==='fmhy'){if(window.fmEnter)fmEnter()}else if(window.fmPause)fmPause();if(b.dataset.p==='media')jopen();else if(window.lvPause)lvPause();if(b.dataset.p==='games'){if(window.gmEnter)gmEnter()}else if(window.gmPause)gmPause();if(b.dataset.p==='phone'){if(window.phEnter)phEnter()}else if(window.phPause)phPause();closeMenu();
 });
 
 /* Driver updater: sidebar buttons scroll the main pane to a section */
@@ -550,7 +550,7 @@ function homeRender(){
  const rep=top.filter(t=>cnt.get(t)>1).length;
  $('#hp-hist').innerHTML=a.length?row('Saved scans',a.length+' of 30')+row('Last scan',ago(a[0].at))+row('Repeat crashes',rep?rep+' scans':'None'):none;
  drvHome();
- const fv=lib.filter(x=>x.fav).sort((p,q)=>p.name.localeCompare(q.name)).slice(0,4),h=$('#hp-lib');
+ const fv=lib.filter(x=>x.fav).sort((p,q)=>p.name.localeCompare(q.name)).slice(0,6),h=$('#hp-lib');
  h.innerHTML=fv.length?fv.map(x=>{const r=arts(x);return '<button type="button" class="gq" data-id="'+esc(x.id)+'" title="Play '+esc(x.name)+'" aria-label="Play '+esc(x.name)+'"><span class="fb" style="--h:'+hue(x.name)+'"><span>'+esc(x.name)+'</span></span>'+(r.length?'<img alt="" loading="lazy" data-n="1" src="'+esc(r[0])+'">':'')+'</button>'}).join(''):'<span class="sn">'+(lib.length?'No favorites yet. Right-click a game in the library and choose Add to Favorites.':'No games yet. Add your games in the Game library.')+'</span>';
 }
 function drvHome(){

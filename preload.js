@@ -168,6 +168,14 @@ contextBridge.exposeInMainWorld('mumble', {
 });
 
 
+// Encrypted storage for the page's localStorage (secure-ls.js uses this; the data lives in secure-store.js).
+contextBridge.exposeInMainWorld('secureStore', {
+  load: () => ipcRenderer.sendSync('store:load'),
+  importAll: data => ipcRenderer.sendSync('store:import', { data }),
+  send: batch => ipcRenderer.send('store:ops', batch),
+  status: () => ipcRenderer.invoke('store:status')
+});
+
 // App lock. The page asks once, before it is drawn, whether the app starts locked, so nothing flashes up first.
 let lockStart = false;
 try { const r = ipcRenderer.sendSync('lock:initial'); lockStart = !!(r && r.startLocked); } catch {}

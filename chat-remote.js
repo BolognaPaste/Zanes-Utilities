@@ -8,6 +8,7 @@
 // The address can be what the host copied from their Test page: http://192.168.1.5:3000 for the same network or a VPN,
 // or the https://something.trycloudflare.com internet link.
 const fs = require('fs');
+const secure = require('./secure-store');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -43,14 +44,14 @@ class RemoteClient {
   }
 
   saved() {
-    try { const s = JSON.parse(fs.readFileSync(this.stateFile, 'utf8')); return { address: String(s.address || ''), name: String(s.name || '') }; }
+    try { const s = JSON.parse(secure.readTextSync(this.stateFile)); return { address: String(s.address || ''), name: String(s.name || '') }; }
     catch { return { address: '', name: '' }; }
   }
   status() { return Object.assign({ state: this.state, address: this.state === 'on' ? this.base : '' }, this.state === 'on' ? { name: this.name } : this.saved()); }
 
-  _keys() { try { const k = JSON.parse(fs.readFileSync(this.idFile, 'utf8')); return k && typeof k === 'object' ? k : {}; } catch { return {}; } }
+  _keys() { try { const k = JSON.parse(secure.readTextSync(this.idFile)); return k && typeof k === 'object' ? k : {}; } catch { return {}; } }
   _saveKey(serverId, key) {
-    try { const k = this._keys(); k[serverId] = key; fs.mkdirSync(path.dirname(this.idFile), { recursive: true }); fs.writeFileSync(this.idFile, JSON.stringify(k)); } catch {}
+    try { const k = this._keys(); k[serverId] = key; secure.writeTextSync(this.idFile, JSON.stringify(k)); } catch {}
   }
 
   async call(method, p, body, ms) {
@@ -99,7 +100,7 @@ class RemoteClient {
       if (sid) this._saveKey(sid, key);
     } catch (e) { this.base = ''; this.token = ''; throw e; }
     this.state = 'on';
-    try { fs.mkdirSync(path.dirname(this.stateFile), { recursive: true }); fs.writeFileSync(this.stateFile, JSON.stringify({ address: base, name: this.name })); } catch {}
+    try { secure.writeTextSync(this.stateFile, JSON.stringify({ address: base, name: this.name })); } catch {}
     this.sid = ''; this.ack = 0;
     this._live(++this.gen);
     return { name: info.name };

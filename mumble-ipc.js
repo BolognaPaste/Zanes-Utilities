@@ -13,6 +13,7 @@
 // Only the app window may ask for these things (every request goes through main.js's trusted-sender check), and
 // processes are started with an argument list, never through a shell.
 const fs = require('fs');
+const secure = require('./secure-store');
 const os = require('os');
 const net = require('net');
 const path = require('path');
@@ -41,7 +42,7 @@ function register(ipc, getWin, { app, dialog }) {
   // Saved choices. The password is stored here in plain text because Mumble's server settings file needs it that way.
   let cfg = { client: '', server: '', port: 64738, lan: false, password: '' };
   try {
-    const c = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
+    const c = JSON.parse(secure.readTextSync(cfgFile));
     if (c && typeof c === 'object') {
       if (looksRight('client', c.client)) cfg.client = c.client;
       if (looksRight('server', c.server)) cfg.server = c.server;
@@ -50,7 +51,7 @@ function register(ipc, getWin, { app, dialog }) {
       if (passwordOk(c.password)) cfg.password = c.password;
     }
   } catch {}
-  const save = () => { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(cfgFile, JSON.stringify(cfg)); };
+  const save = () => { secure.writeTextSync(cfgFile, JSON.stringify(cfg)); };
 
   // Where the Mumble files are looked for: the file you picked, then "mumble" folders next to the app, in its
   // resources and in its data folder (also their "client" / "server" subfolders), then Mumble's normal install folders.

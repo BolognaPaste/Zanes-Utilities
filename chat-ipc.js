@@ -5,6 +5,7 @@
 // set the join password or start and stop the network server. Those requests never go over the network at all.
 // Every request is checked again in chat-core.js, so the page cannot send anything the rules would refuse.
 const fs = require('fs');
+const secure = require('./secure-store');
 const path = require('path');
 const { ChatHub, ChatError, HOST } = require('./chat-core');
 const { ChatServer } = require('./chat-server');
@@ -21,7 +22,7 @@ function register(ipc, getWin, { app, dialog }) {
   // Where cloudflared.exe was chosen from (kept in the app's data folder), and the folders it is looked for in.
   const binFile = path.join(dir, 'tunnel.json');
   let picked = '';
-  try { const b = JSON.parse(fs.readFileSync(binFile, 'utf8')); if (b && looksRight(b.bin)) picked = b.bin; } catch {}
+  try { const b = JSON.parse(secure.readTextSync(binFile)); if (b && looksRight(b.bin)) picked = b.bin; } catch {}
   const unpacked = __dirname.replace(/app\.asar([\\/]|$)/, 'app.asar.unpacked$1');
   const findBin = () => findBinary(picked, [path.join(unpacked, 'cloudflared'), path.join(process.resourcesPath || '', 'cloudflared'), path.join(app.getPath('userData'), 'cloudflared')]);
 
@@ -112,8 +113,7 @@ function register(ipc, getWin, { app, dialog }) {
     if (r.canceled || !r.filePaths[0]) return settings();
     if (!looksRight(r.filePaths[0])) throw new ChatError('That file does not look like cloudflared. Its name should start with "cloudflared".');
     picked = r.filePaths[0];
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(binFile, JSON.stringify({ bin: picked }));
+    secure.writeTextSync(binFile, JSON.stringify({ bin: picked }));
     return settings();
   });
 
