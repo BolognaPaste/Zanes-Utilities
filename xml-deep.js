@@ -53,7 +53,10 @@
 
   window.anXml = function anXml(name, txt) {
     txt = txt.replace(/^\uFEFF/, '');
-    const doc = new DOMParser().parseFromString(txt, 'application/xml');
+    // Drop any DOCTYPE (with its entity definitions) before parsing, so a crafted file cannot expand entities into huge text.
+    // The full text still goes to the plain-text scan below if the XML turns out to be damaged.
+    const safeXml = txt.replace(/<!DOCTYPE[^>\[]*(?:\[[\s\S]*?\]\s*)?>/gi, '');
+    const doc = new DOMParser().parseFromString(safeXml, 'application/xml');
     const pe = doc.getElementsByTagName('parsererror')[0];
     const F = [], seen = new Set(), facts = [];
     const add = (s, t, w, x, e) => { if (seen.has(t)) return; seen.add(t); F.push({ s, t, w, x, e }); };
