@@ -23,7 +23,7 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 [hidden]{display:none!important}
 .app{display:flex;min-height:100vh}
-nav{width:210px;flex:none;background:var(--card);border-right:1px solid var(--bd);padding:20px 10px;display:flex;flex-direction:column;gap:4px}
+nav{width:250px;flex:none;background:var(--card);border-right:1px solid var(--bd);padding:20px 10px;display:flex;flex-direction:column;gap:4px}
 nav .nv{margin:0;width:100%;text-align:left;background:none;color:var(--fg);padding:9px 10px;border-radius:4px}
 nav .nv:hover{background:var(--code)}
 nav .nv[aria-current]{background:#52258f;color:#fff}
@@ -87,6 +87,7 @@ button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 .err{color:var(--h)}
 footer{margin-top:40px;color:var(--mut);font-size:.85rem}
 main.wide{max-width:1180px}
+main.wide:not(.fmw):not(.full):not(:has(>[id=p-media]:not([hidden]))){max-width:1640px}
 details#ld{position:relative;display:inline-block;margin:0 0 14px}
 details#ld>summary{list-style:none;cursor:pointer;background:var(--acc);color:var(--card);padding:8px 14px;border-radius:4px;user-select:none}
 details#ld>summary::-webkit-details-marker{display:none}
@@ -143,9 +144,9 @@ nav{background:var(--pn)}
 main{background:var(--pn)}
 @media(max-width:640px){main{padding-left:12px;padding-right:12px}}
 /* Media player: Jellyfin's own interface */
-.jf{display:grid;gap:10px;max-width:400px;background:var(--card);border:1px solid var(--bd);border-radius:6px;padding:16px}
-.jf label{display:grid;gap:4px;font-size:.9rem;color:var(--mut)}
-.jf input{padding:8px 10px;border:1px solid var(--bd);border-radius:4px;background:var(--bg);color:var(--fg);font:inherit}
+.jf{display:grid;gap:14px;max-width:720px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:28px 32px}
+.jf label{display:grid;gap:6px;font-size:1rem;color:var(--mut)}
+.jf input{padding:11px 14px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;font-size:1rem}
 .jf button{margin-top:4px}
 .jerr{color:#ff8a80;margin:0}
 .lib .alt{color:#e6dff0;border-color:#3a2c52}
@@ -171,11 +172,11 @@ nav .nv.stg:hover{color:var(--fg)}
 nav .nv.stg[aria-current]{background:#52258f;color:#fff}
 body.nc .nth{flex-direction:column;align-items:stretch;gap:4px}
 body.nc nav .tg{width:100%}
-body.nc nav .nv.stg{display:flex;width:100%;padding:9px 0}
+body.nc nav .nv.stg,body.nc nav .nlk{display:flex;width:100%;padding:9px 0}
 main.full{max-width:none;margin:0;padding:0}
 #p-media.cn>h1,#p-media.cn>.sub{display:none}
 #japp:fullscreen{height:100%}
-@media(max-width:640px){.nth{margin:0}body.nc .nth{flex-direction:row}body.nc nav .tg,body.nc nav .nv.stg{width:auto;padding:9px 10px}nav .tg{width:auto;margin:0}body.nc nav{width:auto;padding:10px}.jp{height:calc(100dvh - 62px)}}
+@media(max-width:640px){.nth{margin:0}body.nc .nth{flex-direction:row}body.nc nav .tg,body.nc nav .nv.stg,body.nc nav .nlk{width:auto;padding:9px 10px}nav .tg{width:auto;margin:0}body.nc nav{width:auto;padding:10px}.jp{height:calc(100dvh - 62px)}}
 /* Left menu stays put while the page on the right scrolls; it only scrolls itself if it is taller than the window */
 nav{position:sticky;top:0;align-self:flex-start;height:100vh;height:100dvh;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
 @media(max-width:640px){nav{position:static;align-self:auto;height:auto;overflow-x:auto;overflow-y:visible}}
@@ -313,7 +314,7 @@ button[disabled]{cursor:default}
 .gmc b{display:block;padding:6px 8px 0;font-size:.92rem;word-break:break-word}
 .gmc small{display:block;padding:0 8px 8px;color:var(--mut)}
 main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
-.fmb{display:flex;gap:8px;flex-wrap:wrap}/* App lock */.nfoot{margin-top:auto;padding-top:8px;display:flex;justify-content:flex-end;position:sticky;bottom:0}nav .nlk{margin:0;width:auto;flex:none;display:flex;align-items:center;justify-content:center;padding:8px;background:none;border:0;border-radius:4px;color:var(--mut);cursor:pointer;line-height:0}nav .nlk:hover{background:var(--code);color:var(--fg)}nav .nlk[data-on="1"]{color:var(--acc)}@media(max-width:640px){.nfoot{margin:0 0 0 auto;padding:0;position:static}}#lk{display:none;position:fixed;inset:0;z-index:2147483000;align-items:center;justify-content:center;padding:20px;background:linear-gradient(rgba(10,7,16,.86),rgba(10,7,16,.86)),url(bg.jpg) center/cover no-repeat;color:#ece6f5;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}html.locked #lk{display:flex}html.locked body>*:not(#lk){visibility:hidden}#lk .lkb{width:100%;max-width:340px;text-align:center;background:#150f1f;border:1px solid #2e2340;border-radius:12px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.35)}#lk svg{color:#b57bff;margin-bottom:10px}#lk h1{font:700 1.15rem/1.25 system-ui,sans-serif;margin:0 0 4px;color:#ece6f5}#lk p{margin:0 0 16px;font-size:.8125rem;color:#a394b8}#lk input{display:block;width:100%;box-sizing:border-box;margin:0 0 10px;padding:10px 12px;font:inherit;font-size:.9rem;border:1.5px solid #2e2340;border-radius:8px;background:#0a0710;color:#ece6f5;outline:none}#lk input:focus{border-color:#b57bff}#lk button{display:block;width:100%;margin:0;padding:10px 14px;font:inherit;font-size:.9rem;font-weight:600;border:0;border-radius:8px;background:#b57bff;color:#150f1f;cursor:pointer}#lk button:disabled,#lk input:disabled{opacity:.5;cursor:not-allowed}#lk .lkerr{min-height:1.2em;margin:12px 0 0;color:#ff8a80}.fmq{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}.fmq button{min-width:84px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fmq button:not([data-set]){border-style:dashed;min-height:2.1em}.fmh{height:calc(100vh - 150px);min-height:360px;margin-top:10px;border-radius:8px;background:#0f161c}
+.fmb{display:flex;gap:8px;flex-wrap:wrap}/* App lock */.nfoot{margin-top:auto;padding-top:8px;display:flex;justify-content:flex-end}nav .nlk{margin:0;width:auto;flex:none;display:flex;align-items:center;justify-content:center;padding:8px;background:none;border:0;border-radius:4px;color:var(--mut);cursor:pointer;line-height:0}nav .nlk:hover{background:var(--code);color:var(--fg)}nav .nlk[data-on="1"]{color:var(--acc)}@media(max-width:640px){.nfoot{margin:0 0 0 auto;padding:0;position:static}}#lk{display:none;position:fixed;inset:0;z-index:2147483000;align-items:center;justify-content:center;padding:20px;background:linear-gradient(rgba(10,7,16,.86),rgba(10,7,16,.86)),url(bg.jpg) center/cover no-repeat;color:#ece6f5;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}html.locked #lk{display:flex}html.locked body>*:not(#lk){visibility:hidden}#lk .lkb{width:100%;max-width:340px;text-align:center;background:#150f1f;border:1px solid #2e2340;border-radius:12px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.35)}#lk svg{color:#b57bff;margin-bottom:10px}#lk h1{font:700 1.15rem/1.25 system-ui,sans-serif;margin:0 0 4px;color:#ece6f5}#lk p{margin:0 0 16px;font-size:.8125rem;color:#a394b8}#lk input{display:block;width:100%;box-sizing:border-box;margin:0 0 10px;padding:10px 12px;font:inherit;font-size:.9rem;border:1.5px solid #2e2340;border-radius:8px;background:#0a0710;color:#ece6f5;outline:none}#lk input:focus{border-color:#b57bff}#lk button{display:block;width:100%;margin:0;padding:10px 14px;font:inherit;font-size:.9rem;font-weight:600;border:0;border-radius:8px;background:#b57bff;color:#150f1f;cursor:pointer}#lk button:disabled,#lk input:disabled{opacity:.5;cursor:not-allowed}#lk .lkerr{min-height:1.2em;margin:12px 0 0;color:#ff8a80}.fmq{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}.fmq button{min-width:84px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fmq button:not([data-set]){border-style:dashed;min-height:2.1em}.fmh{height:calc(100vh - 150px);min-height:360px;margin-top:10px;border-radius:8px;background:#0f161c}
 .gmh{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.gmh h1{margin:0}
 #gm-frame{display:block;width:100%;height:72vh;border:0;background:#000}
 /* Phone Link */
@@ -351,7 +352,7 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 .pv.sh s{display:block;position:relative;width:96px;height:68px;border:4px solid var(--acc);border-radius:8px;text-decoration:none}
 .pv.sh s:before{content:">_";position:absolute;left:8px;top:6px;font:700 20px/1 ui-monospace,Consolas,monospace;color:var(--acc)}
 #ssh-host{display:flex;background:var(--bg);position:relative}
-#p-ssh .sx-sb{width:224px;flex:none;background:var(--card);border-right:1px solid var(--bd);display:flex;flex-direction:column;height:100%;overflow:hidden}
+#p-ssh .sx-sb{width:272px;flex:none;background:var(--card);border-right:1px solid var(--bd);display:flex;flex-direction:column;height:100%;overflow:hidden}
 #p-ssh .sx-head{padding:16px;border-bottom:1px solid var(--bd);flex:none}
 #p-ssh .sx-name{font-size:.875rem;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:8px}
 #p-ssh .sx-sub{font-size:.6875rem;color:var(--mut);margin-top:3px}
@@ -397,7 +398,7 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 #p-ssh .sx-dot.on{background:#22c55e}
 #p-ssh #ssh-new{flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
 #p-ssh #ssh-new[hidden]{display:none}
-#p-ssh .vt-card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:32px;width:100%;max-width:440px;box-shadow:0 4px 24px rgba(0,0,0,.08);margin:auto}
+#p-ssh .vt-card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:36px 40px;width:100%;max-width:640px;box-shadow:0 4px 24px rgba(0,0,0,.08);margin:auto}
 #p-ssh .vt-lock-icon{text-align:center;color:var(--acc);margin-bottom:14px}
 #p-ssh .vt-lock-title{font:700 1.25rem/1 system-ui,sans-serif;color:var(--fg);text-align:center;margin:0 0 4px}
 #p-ssh .vt-lock-sub{font-size:.8125rem;color:var(--mut);text-align:center;margin:0 0 22px}
@@ -431,7 +432,7 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 #p-ssh .sx-more .g button{margin:0;padding:5px 10px;font:inherit;font-size:.75rem;font-weight:600;border-radius:6px;background:transparent;border:1.5px solid var(--bd);color:var(--fg);cursor:pointer}
 /* Shared SSH-style layout: Game Analyzer, Past scans, Game optimizer */
 .sxp .vth{display:flex;background:var(--bg);position:relative}
-.sxp .sx-sb{width:224px;flex:none;background:var(--card);border-right:1px solid var(--bd);display:flex;flex-direction:column;height:100%;overflow:hidden}
+.sxp .sx-sb{width:272px;flex:none;background:var(--card);border-right:1px solid var(--bd);display:flex;flex-direction:column;height:100%;overflow:hidden}
 .sxp .sx-head{padding:16px;border-bottom:1px solid var(--bd);flex:none}
 .sxp .sx-name{font-size:.875rem;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:8px}
 .sxp .sx-sub{font-size:.6875rem;color:var(--mut);margin-top:3px}
@@ -451,13 +452,13 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 .sxp .sx-main{flex:1;display:flex;flex-direction:column;height:100%;overflow:hidden;min-width:0}
 .sxp .sx-banner{margin:0;padding:10px 20px;background:color-mix(in srgb,var(--h) 10%,var(--card));border-bottom:1px solid color-mix(in srgb,var(--h) 35%,var(--bd));color:var(--h);font-size:.8125rem}
 .sxp .sx-body{flex:1;min-height:0;overflow-y:auto;padding:24px;background:var(--bg)}
-.sxp .sx-col{max-width:820px;margin:0 auto}
+.sxp .sx-col{max-width:1240px;margin:0 auto}
 .sxp .sx-status{display:flex;align-items:center;gap:10px;padding:8px 20px;border-top:1px solid var(--bd);background:var(--code);font-size:.75rem;color:var(--mut);flex:none}
 .sxp .sx-status .fx{color:var(--mut)}.sxp .sx-status .err{color:var(--h)}
 .sxp #op-msg:empty:before{content:"Ready"}
 .sxp .sx-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--mut);margin-right:4px}
 .sxp .sx-dot.on{background:#22c55e}
-.sxp .vt-card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:32px;width:100%;max-width:560px;box-shadow:0 4px 24px rgba(0,0,0,.08);margin:0 auto 20px}
+.sxp .vt-card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:36px 40px;width:100%;max-width:820px;box-shadow:0 4px 24px rgba(0,0,0,.08);margin:0 auto 20px}
 .sxp .vt-lock-icon{text-align:center;color:var(--acc);margin-bottom:14px}
 .sxp .vt-lock-title{font:700 1.25rem/1.2 system-ui,sans-serif;color:var(--fg);text-align:center;margin:0 0 4px;letter-spacing:0}
 .sxp .vt-lock-sub{font-size:.8125rem;color:var(--mut);text-align:center;margin:0 0 22px;max-width:none}
@@ -517,7 +518,7 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 .sxp .sx-dev .vnc .fx{font-size:.6875rem;margin:4px 0 0}
 .sxp .sx-dev .vnc:has(input:checked) .vh .fx{color:#fff}
 .sxp .sx-dev .empty{margin:0}
-.sxp #ph-tool.empty{display:block;border:1px solid color-mix(in srgb,var(--m) 40%,var(--bd));border-radius:12px;background:var(--card);padding:18px 24px;margin:0 auto 16px;max-width:820px}
+.sxp #ph-tool.empty{display:block;border:1px solid color-mix(in srgb,var(--m) 40%,var(--bd));border-radius:12px;background:var(--card);padding:18px 24px;margin:0 auto 16px;max-width:1240px}
 .sxp #ph-tool[hidden]{display:none}
 @media(max-width:640px){.sxp .vth{flex-direction:column;height:auto}.sxp .sx-sb{width:auto;height:auto;max-height:42vh;border-right:0;border-bottom:1px solid var(--bd)}.sxp .sx-main{height:auto;min-height:60vh}}
 /* SSH file transfer */
@@ -569,7 +570,7 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 #ssh-prompt .bar button.alt{background:transparent;color:var(--fg);border:1.5px solid var(--bd)}
 /* Home: sidebar + main pane like the SSH terminal. The tool previews (.hm .hc .pv) keep their own styles. */
 #p-home .vth{display:flex;background:var(--bg);position:relative}
-#p-home .sx-sb{width:224px;flex:none;background:var(--card);border-right:1px solid var(--bd);display:flex;flex-direction:column;height:100%;overflow:hidden}
+#p-home .sx-sb{width:272px;flex:none;background:var(--card);border-right:1px solid var(--bd);display:flex;flex-direction:column;height:100%;overflow:hidden}
 #p-home .sx-head{padding:16px;border-bottom:1px solid var(--bd);flex:none}
 #p-home .sx-name{font-size:.875rem;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:8px}
 #p-home .sx-sub{font-size:.6875rem;color:var(--mut);margin-top:3px}
@@ -588,37 +589,50 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 #p-home .sx-main{flex:1;display:flex;flex-direction:column;height:100%;overflow:hidden;min-width:0}
 #p-home .sx-body{flex:1;min-height:0;overflow-y:auto;padding:24px;background:var(--bg)}
 #p-home .sx-body::-webkit-scrollbar{width:5px}#p-home .sx-body::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
-#p-home .sx-col{max-width:960px;margin:0 auto}
+#p-home .sx-col{max-width:1320px;margin:0 auto}
 #p-home .hm{margin-top:0}
 #p-home .sx-banner{margin:0 0 16px;padding:10px 14px;border-radius:8px;background:color-mix(in srgb,var(--h) 10%,var(--card));border:1px solid color-mix(in srgb,var(--h) 35%,var(--bd));color:var(--h);font-size:.8125rem}
 #p-home .sx-status{display:flex;align-items:center;gap:10px;padding:8px 20px;border-top:1px solid var(--bd);background:var(--code);font-size:.75rem;color:var(--mut);flex:none}
 #p-home .sx-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--mut);margin-right:4px}
 #p-home .sx-dot.on{background:#22c55e}
 @media(max-width:640px){#p-home .vth{flex-direction:column;height:auto}#p-home .sx-sb{width:auto;height:auto;max-height:42vh;border-right:0;border-bottom:1px solid var(--bd)}#p-home .sx-main{height:auto;min-height:60vh}}
+.xt-i{margin-left:14px;border-left:1px solid var(--bd);padding-left:8px}.xt-l,.xt summary{font:12px ui-monospace,Consolas,Menlo,monospace;word-break:break-all}.xt-l{padding:1px 0}.xt{max-height:420px;overflow:auto;margin-top:8px}
+/* Left side of every tool: the entry under the pointer (or keyboard focus) is highlighted */
+:is(#p-home,#p-ssh,.pg) .sx-sb :is(.sx-act:not([data-on="1"]):not(:disabled),.sx-info li,.sx-hl .hi:not(:has(input:checked)),.sx-saved .sx-p,.sx-shl .it,.sst-i:not([data-on])){border-radius:4px;transition:background-color .12s,box-shadow .12s}
+:is(#p-home,#p-ssh,.pg) .sx-sb :is(.sx-act:not([data-on="1"]):not(:disabled),.sx-info li,.sx-hl .hi:not(:has(input:checked)),.sx-saved .sx-p,.sx-shl .it,.sst-i:not([data-on])):is(:hover,:focus-visible){background:color-mix(in srgb,var(--acc) 14%,var(--card));box-shadow:inset 3px 0 0 var(--acc)}
+nav .nv:not([aria-current]):not(:active):hover,nav .ng summary:hover{background:color-mix(in srgb,var(--acc) 14%,var(--card));box-shadow:inset 3px 0 0 var(--acc)}
+@media(prefers-reduced-motion:reduce){:is(#p-home,#p-ssh,.pg) .sx-sb :is(.sx-act:not([data-on="1"]):not(:disabled),.sx-info li,.sx-hl .hi:not(:has(input:checked)),.sx-saved .sx-p,.sx-shl .it,.sst-i:not([data-on])){transition:none}}
+/* Main pane of every tool: the section under the pointer is highlighted */
+:is(#p-ssh,.sxp) .sx-main :is(.vt-card,.sx-card,#out>section,#hc:not(:empty)){transition:background-color .12s,box-shadow .12s,border-color .12s}
+:is(#p-ssh,.sxp) .sx-main :is(.vt-card,.sx-card,#out>section,#hc:not(:empty)):hover{background:color-mix(in srgb,var(--acc) 6%,var(--card));border-color:color-mix(in srgb,var(--acc) 45%,var(--bd));box-shadow:inset 3px 0 0 var(--acc),0 4px 24px rgba(0,0,0,.08)}
+.sxp .sx-body .f:hover{background:color-mix(in srgb,var(--acc) 10%,var(--card))}
+.sxp .sx-body table tr:hover>*{background:color-mix(in srgb,var(--acc) 10%,var(--card))}
+#p-ssh .sfp .sf-r:not([data-on="1"]):hover{background:color-mix(in srgb,var(--acc) 8%,var(--card));box-shadow:inset 3px 0 0 var(--acc)}
+@media(prefers-reduced-motion:reduce){:is(#p-ssh,.sxp) .sx-main :is(.vt-card,.sx-card,#out>section,#hc:not(:empty)){transition:none}}
 </style>
 </head>
 <body>
 <div class="app">
-<nav aria-label="Tools"><div class="nth"><button type="button" class="tg" id="ntg" aria-label="Toggle menu" title="Toggle menu" aria-expanded="true">☰ Zane's Utilities</button><button type="button" class="nv stg" data-p="settings" aria-label="Settings" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button></div><button type="button" class="nv" data-p="home" aria-current="page">Home</button><button type="button" class="nv" data-p="test">Test</button><details class="ng" id="ng-games"><summary>Game tools</summary><div class="ngb"><button type="button" class="nv" data-p="next">Game library</button><button type="button" class="nv" data-p="crash">Game Analyzer</button><button type="button" class="nv" data-p="hist">Past scans</button><button type="button" class="nv" data-p="opt">Game optimizer</button></div></details><details class="ng" id="ng-fun"><summary>Entertainment</summary><div class="ngb"><button type="button" class="nv" data-p="media">Media player</button><button type="button" class="nv" data-p="games">Web games</button><button type="button" class="nv" data-p="fmhy">FMHY</button></div></details><details class="ng" id="ng-sys"><summary>PC &amp; devices</summary><div class="ngb"><button type="button" class="nv" data-p="drv">Driver updater<span id="dv-badge" class="dvb" hidden></span></button><button type="button" class="nv" data-p="phone">Phone Link</button></div></details><details class="ng" id="ng-priv"><summary>Privacy &amp; security</summary><div class="ngb"><button type="button" class="nv" data-p="shred">File shredder</button><button type="button" class="nv" data-p="vault">Encrypted vault</button><button type="button" class="nv" data-p="ssh">SSH terminal</button></div></details><div class="nfoot"><button type="button" class="nlk" id="lk-nav" data-on="0" title="Set up app lock" aria-label="Set up app lock"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></button></div></nav>
+<nav aria-label="Tools"><div class="nth"><button type="button" class="tg" id="ntg" aria-label="Toggle menu" title="Toggle menu" aria-expanded="true">☰ Zane's Utilities</button><button type="button" class="nlk" id="lk-nav" data-on="0" title="Set up app lock" aria-label="Set up app lock"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></button><button type="button" class="nv stg" data-p="settings" aria-label="Settings" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button></div><button type="button" class="nv" data-p="home" aria-current="page">Home</button><button type="button" class="nv" data-p="test">Beta Chat/VoiceChat</button><details class="ng" id="ng-games"><summary>Game tools</summary><div class="ngb"><button type="button" class="nv" data-p="next">Game library</button><button type="button" class="nv" data-p="crash">Crash analyzer</button><button type="button" class="nv" data-p="hist">Past scans</button><button type="button" class="nv" data-p="opt">Game optimizer</button></div></details><details class="ng" id="ng-fun"><summary>Entertainment</summary><div class="ngb"><button type="button" class="nv" data-p="media">Media player</button><button type="button" class="nv" data-p="games">Web games</button><button type="button" class="nv" data-p="fmhy">FMHY</button></div></details><details class="ng" id="ng-sys"><summary>PC &amp; devices</summary><div class="ngb"><button type="button" class="nv" data-p="drv">Driver updater<span id="dv-badge" class="dvb" hidden></span></button><button type="button" class="nv" data-p="phone">Phone Link</button></div></details><details class="ng" id="ng-priv"><summary>Privacy &amp; security</summary><div class="ngb"><button type="button" class="nv" data-p="shred">File shredder</button><button type="button" class="nv" data-p="vault">Encrypted vault</button><button type="button" class="nv" data-p="ssh">SSH terminal</button></div></details></nav>
 <main class="wide">
 <div id="p-home" class="pg">
 <div class="gmh"><h1>Zane's Utilities</h1></div>
 <div class="vth">
 <aside class="sx-sb" aria-label="Home">
-<div class="sx-head"><div class="sx-name"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg><span>Home</span></div><div class="sx-sub">Ten tools in one place</div></div>
+<div class="sx-head"><div class="sx-name"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg><span>Home</span></div><div class="sx-sub">Eleven tools in one place</div></div>
 <div class="sx-list">
 <div class="sx-sect" id="ss-h">Shredding stats</div>
 <ul class="sx-info" aria-labelledby="ss-h"><li><b id="ss-b">0 B</b><small>Data shredded</small></li><li><b id="ss-f">0</b><small>Files</small></li><li><b id="ss-d">0</b><small>Folders</small></li></ul>
 <p id="ss-l" class="sx-none"></p>
 </div>
-<div class="sx-foot"><button type="button" class="sx-act" id="ss-x">Delete stats</button><button type="button" class="sx-act" id="dd-x" title="Deletes everything the app has stored on this PC">Delete all App Data</button></div>
+<div class="sx-foot"><button type="button" class="sx-act" id="ss-x">Delete stats</button><button type="button" class="sx-act" id="dd-x" title="Deletes everything the app has stored on this PC">Delete all app data</button></div>
 </aside>
 <div class="sx-main">
 <div class="sx-body"><div class="sx-col">
 <p id="dd-m" class="err sx-banner" hidden></p>
 <div class="hm">
 <div class="hc hcw"><div class="pv gp" id="hp-lib"></div><button type="button" class="tx hx" data-go="next"><b>Game library</b><span>Your favorite games, one click from launching.</span><i>Open Game library</i></button></div>
-<button type="button" class="hc" data-go="crash"><span class="pv sv" id="hp-crash"></span><span class="tx"><b>Game Analyzer</b><span>Drop in crash logs or minidumps and get a ranked list of likely causes.</span><i>Open Game Analyzer</i></span></button>
+<button type="button" class="hc" data-go="crash"><span class="pv sv" id="hp-crash"></span><span class="tx"><b>Crash analyzer</b><span>Drop in crash logs or minidumps and get a ranked list of likely causes.</span><i>Open Crash analyzer</i></span></button>
 <button type="button" class="hc" data-go="hist"><span class="pv sv" id="hp-hist"></span><span class="tx"><b>Past scans</b><span>Every scan you run is saved in this browser. Tick two to compare them.</span><i>Open Past scans</i></span></button>
 <button type="button" class="hc" data-go="phone"><span class="pv ph" aria-hidden="true"><s></s></span><span class="tx"><b>Phone Link</b><span>See and control your Android phone on this PC over USB, with scrcpy.</span><i>Open Phone Link</i></span></button>
 <button type="button" class="hc" data-go="opt"><span class="pv op" aria-hidden="true"><s></s></span><span class="tx"><b>Game optimizer</b><span>Rates this PC for gaming and suggests the in-game settings and Windows tweaks that fit it.</span><i>Open Game optimizer</i></span></button>
@@ -635,18 +649,18 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 </div>
 </div>
 <div id="p-test" class="pg" hidden>
-<h1>Test</h1>
+<h1>Beta Chat/VoiceChat</h1>
 <p class="sub">A chat server like Discord that runs from this PC. Start it from the gear button, then friends can join from a web browser or from their own copy of this app (Join a friend’s server).</p>
 <div id="cht-root" class="cht-host"></div>
 </div>
 <div id="p-crash" class="pg sxp" hidden>
-<div class="gmh"><h1>Game Crash Analyzer</h1></div>
+<div class="gmh"><h1>Game crash analyzer</h1></div>
 <div class="vth">
-<aside class="sx-sb" aria-label="Game Analyzer">
-<div class="sx-head"><div class="sx-name"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg><span>Game Analyzer</span></div><div class="sx-sub">Files never leave this PC</div></div>
+<aside class="sx-sb" aria-label="Crash analyzer">
+<div class="sx-head"><div class="sx-name"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg><span>Crash analyzer</span></div><div class="sx-sub">Files never leave this PC</div></div>
 <div class="sx-list">
 <div class="sx-sect">Files it reads</div>
-<ul class="sx-info"><li><b>Crash logs</b><small>.txt, .log, .xml</small></li><li><b>Minidumps</b><small>.dmp</small></li></ul>
+<ul class="sx-info"><li><b>Crash logs</b><small>.txt, .log</small></li><li><b>XML reports</b><small>Event Log, Unreal CrashContext, WER, DxDiag</small></li><li><b>Minidumps</b><small>.dmp</small></li></ul>
 <div class="sx-sect">Good to know</div>
 <p class="sx-none">Several files can be scanned at once. Each scan is saved under Past scans.</p>
 </div>
@@ -937,7 +951,7 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 <div class="sx-main">
 <p id="ph-na" class="sx-banner" hidden>Phone Link only works in the Zane's Utilities desktop app on Windows.</p>
 <div class="sx-body"><div class="sx-col">
-<div id="ph-tool" class="empty" hidden><b>scrcpy is needed</b><span class="fx" id="ph-tmsg"></span><div class="bar"><button type="button" class="alt" id="ph-dir">Open the app data scrcpy folder</button></div></div>
+<div id="ph-tool" class="empty" hidden><b>scrcpy is needed</b><span class="fx" id="ph-tmsg"></span><div class="bar"><button type="button" class="alt" id="ph-dir">Open the scrcpy folder in app data</button></div></div>
 <div class="vt-card sx-intro">
 <div class="vt-lock-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"/></svg></div>
 <h1 class="vt-lock-title">Use your phone on this PC</h1>
@@ -970,7 +984,7 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 <div class="sx-card">
 <details class="sx-more"><summary>scrcpy log</summary><pre id="ph-log"></pre></details>
 <details class="sx-more"><summary>Setting up the phone</summary>
-<p class="fx">1. On the phone open Settings, About phone, and tap Build number 7 times to turn on Developer options.</p>
+<p class="fx">1. On the phone, open Settings, About phone, and tap Build number 7 times to turn on Developer options.</p>
 <p class="fx">2. Open Settings, System, Developer options and turn on USB debugging. Some brands (Xiaomi, for example) also have a separate "USB debugging (Security settings)" switch that lets a mouse and keyboard control the phone.</p>
 <p class="fx">3. Plug the phone in with a cable that carries data, not a charge-only cable. If the phone asks for a USB mode, pick File transfer. Tap Allow on the "Allow USB debugging?" prompt and tick Always allow.</p>
 <p class="fx">Some apps, such as banking apps and video services, block screen capture and show a black screen in scrcpy. Screenshots and recordings made here are saved in your Downloads\ZanesUtilities folder.</p>
@@ -1022,7 +1036,7 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 </div>
 <section id="vn" class="sx-card" aria-labelledby="vn-h">
 <h2 id="vn-h">Drivers from the manufacturers</h2>
-<p class="fx">Windows Update does not carry every driver, and manufacturers often publish newer ones first. This asks NVIDIA, AMD and Intel directly which graphics, Wi-Fi, Bluetooth and chipset drivers are newest and compares them with what is installed. NVIDIA installers can be downloaded here, and are only started after their NVIDIA digital signature checks out; everything else opens the manufacturer's page. Makers like Realtek publish no version feed, so those devices are listed with a link to your PC maker's driver page.</p>
+<p class="fx">Windows Update does not carry every driver, and manufacturers often publish newer ones first. This asks NVIDIA, AMD and Intel directly which graphics, Wi-Fi, Bluetooth and chipset drivers are newest and compares them with what is installed. NVIDIA installers can be downloaded here and are only started after their NVIDIA digital signature checks out; everything else opens the manufacturer's page. Makers like Realtek publish no version feed, so those devices are listed with a link to your PC maker's driver page.</p>
 <div class="bar"><button type="button" id="vn-check">Check manufacturer sites</button></div>
 <p id="vn-msg" class="fx" role="status" aria-live="polite"></p>
 <div id="vn-list"></div>
@@ -1055,14 +1069,14 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 <h1 class="vt-lock-title">Ad blocker</h1>
 <p class="vt-lock-sub">Blocks ads, trackers and pop-ups in the pages opened by your FMHY buttons, using uBlock Origin's filter lists. It does not change the fmhy.net page itself or the rest of the app.</p>
 <label class="fq-opt"><input type="checkbox" id="ab-on" checked><span>Block ads and trackers <small>Turn this off if a site stops working.</small></span></label>
-<div class="ab-box" id="ab-box" data-s="idle" role="status" aria-live="polite"><p class="ab-head" id="ab-head">Checking the filter lists...</p><div class="ab-sub" id="ab-sub"></div><ul class="ab-lists" id="ab-lists"></ul></div>
+<div class="ab-box" id="ab-box" data-s="idle" role="status" aria-live="polite"><p class="ab-head" id="ab-head">Checking the filter lists…</p><div class="ab-sub" id="ab-sub"></div><ul class="ab-lists" id="ab-lists"></ul></div>
 <div class="fq-bar"><button type="button" id="ab-upd">Update filter lists now</button></div>
 <p id="ab-msg" class="fx" role="status"></p>
 <p class="fx lk-note">The lists are downloaded once, saved on this computer, and refreshed automatically after a week. Changes apply to new requests; reload a pop-out page that is already open to see them.</p>
 </div>
 <div class="vt-card" id="lk-card">
 <h1 class="vt-lock-title">App lock</h1>
-<p class="vt-lock-sub">Lock the whole app behind a password. It asks for the password every time the app opens, and whenever you press the padlock at the bottom of the menu.</p>
+<p class="vt-lock-sub">Lock the whole app behind a password. It asks for the password every time the app opens, and whenever you press the padlock at the top of the menu.</p>
 <p id="lk-status" class="lk-st"></p>
 <div id="lk-off" hidden><label class="lk-f">New password<input type="password" id="lk-n1" autocomplete="off" spellcheck="false"></label><label class="lk-f">Repeat password<input type="password" id="lk-n2" autocomplete="off" spellcheck="false"></label><div class="lk-btns"><button type="button" id="lk-set">Turn on app lock</button></div></div>
 <div id="lk-onbox" hidden><div class="lk-btns"><button type="button" id="lk-now">Lock now</button></div><h2 class="lk-h">Auto-lock</h2><label class="lk-f">Lock after no keyboard or mouse use for<select id="lk-auto"><option value="0">Never</option><option value="1">1 minute</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option></select></label><h2 class="lk-h">Change password</h2><label class="lk-f">Current password<input type="password" id="lk-c" autocomplete="off" spellcheck="false"></label><label class="lk-f">New password<input type="password" id="lk-p1" autocomplete="off" spellcheck="false"></label><label class="lk-f">Repeat new password<input type="password" id="lk-p2" autocomplete="off" spellcheck="false"></label><div class="lk-btns"><button type="button" class="alt" id="lk-chg">Change password</button></div><h2 class="lk-h">Turn off app lock</h2><label class="lk-f">Current password<input type="password" id="lk-rc" autocomplete="off" spellcheck="false"></label><div class="lk-btns"><button type="button" class="alt" id="lk-rm">Remove password</button></div></div>
@@ -1086,6 +1100,7 @@ main.fmw{max-width:none;margin:0;padding-left:10px;padding-right:10px}
 <div id="lk" role="dialog" aria-modal="true" aria-label="App locked"><div class="lkb"><svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg><h1>Zane's Utilities is locked</h1><p>Enter your password to continue.</p><input type="password" id="lk-pw" placeholder="Password" autocomplete="off" spellcheck="false" aria-label="Password"><button type="button" id="lk-go">Unlock</button><p id="lk-err" class="lkerr" role="alert"></p></div></div>
 <div id="cm" class="cm" role="menu" hidden></div><div id="dl" class="dl" hidden></div><div id="ts" class="ts" role="status" hidden></div>
 <script src="app.js"></script>
+<script src="xml-deep.js"></script>
 <script src="drivers.js"></script>
 <script src="vendor-ui.js"></script>
 <script src="shred-ui.js"></script>

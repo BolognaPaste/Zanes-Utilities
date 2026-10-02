@@ -49,7 +49,7 @@
       const x = ORDER.indexOf(a.category || 'Graphics'), y = ORDER.indexOf(b.category || 'Graphics');
       return (x < 0 ? 99 : x) - (y < 0 ? 99 : y);
     });
-    if (!items.length) { msg.textContent = 'Nothing to check was found in this PC.'; return; }
+    if (!items.length) { msg.textContent = 'Nothing to check was found on this PC.'; return; }
     const n = items.filter(x => x.status === 'newer').length;
     const m = items.filter(x => x.status === 'manual').length;
     msg.textContent = (n ? n + ' driver update' + (n > 1 ? 's' : '') + ' available.' : 'Nothing newer was found for the drivers that could be checked.') +

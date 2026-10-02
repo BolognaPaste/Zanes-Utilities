@@ -65,6 +65,7 @@
       "bg.jpg",
       "build/icon.png",
       "app.js",
+      "xml-deep.js",
       "ps/*.ps1",
       "scrcpy/**/*",
       "cloudflared/**/*",

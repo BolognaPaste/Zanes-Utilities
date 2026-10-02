@@ -95,7 +95,7 @@
     const lines = [];
     let state = 'idle', head = '';
     if (s.state === 'loading') {
-      head = 'Reading the filter lists...';
+      head = 'Reading the filter lists…';
       lines.push('Downloading and building the filters. The first time can take a little while.');
     } else if (s.state === 'ready') {
       if (s.cached) { state = 'ready'; head = '\u2713 Filter lists read and cached'; }

@@ -89,7 +89,7 @@
     toolsOk = false;
     tool.hidden = false;
     const p = (d && d.places) || [];
-    tmsg.innerHTML = 'scrcpy was not found. Download the Windows 64-bit ZIP from <code>github.com/Genymobile/scrcpy/releases</code> and extract everything in it (scrcpy.exe, adb.exe, scrcpy-server and the DLLs) into one folder of these, then press Refresh:' +
+    tmsg.innerHTML = 'scrcpy was not found. Download the Windows 64-bit ZIP from <code>github.com/Genymobile/scrcpy/releases</code> and extract everything in it (scrcpy.exe, adb.exe, scrcpy-server and the DLLs) into one of these folders, then press Refresh:' +
       (p.length ? '<br>' + p.map(x => '<code>' + esc(x) + '</code>').join('<br>') : '');
     devs = []; last = ''; render();
   }

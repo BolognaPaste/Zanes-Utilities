@@ -1,4 +1,4 @@
-// App lock, page side: the lock screen, the padlock at the bottom of the menu and the "App lock" section of
+// App lock, page side: the lock screen, the padlock at the top of the menu and the "App lock" section of
 // Settings. The lock itself is enforced by the main process (lock-ipc.js); this file only draws it and talks to
 // it through window.appLock (see preload.js). It uses nothing from the other scripts except the optional toast and
 // page pause functions, so the lock screen keeps working even if another script fails.

@@ -137,6 +137,7 @@ function render(r){
  h+=r.findings.length?r.findings.map(f=>'<div class="f '+f.s+'"><b>'+esc(f.t)+'</b><span class="tag">'+R[f.s]+'</span><p>'+esc(f.w)+'</p><p class="fx">Try: '+esc(f.x)+'</p>'+(f.e?'<pre>'+esc(f.e)+'</pre>':'')+'</div>').join(''):(r.err?'':'<div class="f"><b>No known crash pattern found</b><p>Nothing in this file matched the built-in rules. The key lines below are the best place to start.</p></div>');
  if(r.facts.length)h+='<h3>Details</h3><div class="tw"><table>'+r.facts.map(([k,v])=>'<tr><th>'+esc(k)+'</th><td>'+esc(v)+'</td></tr>').join('')+'</table></div>';
  if(r.key&&r.key.length)h+='<h3>Key lines</h3><pre>'+esc(r.key.join('\n'))+'</pre>';
+ if(r.html)h+=r.html;
  if(r.mods&&r.mods.length)h+='<details><summary>'+r.mods.length+' loaded modules</summary><pre>'+esc(r.mods.join('\n'))+'</pre></details>';
  if(r.findings.length)h+='<button type="button">Copy summary</button>';
  s.innerHTML=h;
@@ -161,7 +162,8 @@ async function handle(files){
     const u16=head[0]===0xFF&&head[1]===0xFE;
     if(!u16&&head.filter(x=>x===0).length>8)throw Error('This is a binary file in a format this tool does not recognize.');
     const buf=await f.slice(0,30e6).arrayBuffer();
-    render(anText(f.name,new TextDecoder(u16?'utf-16le':'utf-8').decode(buf)));
+    const txt=new TextDecoder(u16?'utf-16le':'utf-8').decode(buf);
+    render(window.anXml&&/^\s*<(\?xml|[A-Za-z!])/.test(txt.slice(0,300).replace(/^\uFEFF/,''))?window.anXml(f.name,txt):anText(f.name,txt));
    }
   }catch(e){render({name:f.name,facts:[],findings:[],err:e.message})}
  }

@@ -1,4 +1,4 @@
-// Chat backend for the app window (the "Test" page). It owns the one ChatHub (chat-core.js) and the optional
+// Chat backend for the app window (the "Beta Chat/VoiceChat" page). It owns the one ChatHub (chat-core.js) and the optional
 // network server (chat-server.js), and gives the page a small set of requests.
 //
 // The page is the host: it always chats as "host" and is the only one who can add or delete channels, kick people,
