@@ -36,10 +36,10 @@ function isProtected(p) {
 }
 
 const NAME_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+// randomInt picks each character evenly; a random byte % 36 would favour the first four.
 const randName = len => {
-  const b = crypto.randomBytes(len);
   let s = '';
-  for (let i = 0; i < len; i++) s += NAME_CHARS[b[i] % NAME_CHARS.length];
+  for (let i = 0; i < len; i++) s += NAME_CHARS[crypto.randomInt(NAME_CHARS.length)];
   return s;
 };
 const nameLen = p => Math.min(Math.max(path.basename(p).length, 8), 200);
@@ -351,4 +351,4 @@ function register(ipcMain, getWin, { dialog }) {
   });
 }
 
-module.exports = { register, _test: { isProtected, PASSES } };
+module.exports = { register, _test: { isProtected, PASSES, randName, NAME_CHARS } };
