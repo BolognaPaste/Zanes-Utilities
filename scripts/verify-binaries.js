@@ -27,7 +27,7 @@ for (const d of present) for (const f of walk(d, [])) onDisk[rel(f)] = sha(f);
 
 if (process.argv.includes('--update')) {
   if (!present.length) {
-    console.error('None of ' + DIRS.join(', ') + ' exist here, nothing to record.');
+    console.error('None of ' + DIRS.join(', ') + ' exist here; there is nothing to record.');
     process.exit(1);
   }
   fs.writeFileSync(manifestPath, JSON.stringify({ version: 1, files: onDisk }, null, 2) + '\n');

@@ -161,7 +161,7 @@
       E('lk-rmbox').hidden = !!st.storagePassword;
       E('lk-dir').textContent = !st.enabled ? ''
         : st.storagePassword
-          ? 'This password also protects your saved data, so it cannot be turned off here (use Data protection below to go back to your Windows account). Forgot it? Nothing can be recovered: the only way back in is to delete the file zu-loc.bin from this folder, which makes the app start fresh and the old saved data is lost for good: ' + (st.dir || 'the app data folder')
+          ? 'This password also protects your saved data, so it cannot be turned off here (use Data protection below to go back to your Windows account). Forgot it? Nothing can be recovered: the only way back in is to delete the file zu-loc.bin from this folder, which makes the app start fresh, and the old saved data is lost for good: ' + (st.dir || 'the app data folder')
           : 'Forgot the password? There is no reset. The lock can only be taken off by deleting the file app-lock.json from this folder: ' + (st.dir || 'the app data folder');
     };
 
@@ -255,7 +255,7 @@
       if (a.length < 8) return say('Use at least 8 characters.', true);
       if (a !== val('dp-n2')) return say('The two passwords do not match.', true);
       if (st.enabled && !val('dp-cur')) return say('Enter your current app lock password.', true);
-      say('Working... this takes a moment.');
+      say('Working… this takes a moment.');
       const r = await ss.pwEnable(a, st.enabled ? val('dp-cur') : undefined);
       if (!r || !r.ok) return fail(r);
       clear('dp-n1', 'dp-n2', 'dp-cur');
@@ -266,7 +266,7 @@
 
     run(E('dp-off'), async () => {
       if (!val('dp-c2')) return say('Enter your current password.', true);
-      say('Working... this takes a moment.');
+      say('Working… this takes a moment.');
       const r = await ss.pwDisable(val('dp-c2'));
       if (!r || !r.ok) return fail(r);
       clear('dp-c2');

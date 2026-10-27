@@ -50,7 +50,7 @@
     const n = items.filter(x => x.status === 'newer').length;
     const m = items.filter(x => x.status === 'manual').length;
     msg.textContent = (n ? n + ' driver update' + (n > 1 ? 's' : '') + ' available.' : 'Nothing newer was found for the drivers that could be checked.') +
-      (m ? ' ' + m + ' item' + (m > 1 ? 's' : '') + ' need a manual look (see below).' : '');
+      (m ? ' ' + m + (m > 1 ? ' items need' : ' item needs') + ' a manual look (see below).' : '');
     let last = null, html = '';
     items.forEach((it, i) => {
       const c = it.category || 'Graphics';

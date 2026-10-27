@@ -237,7 +237,7 @@ async function checkIntel(gpu, ctx) {
     ...base,
     latest,
     status: cmp(gpu.ver, latest) < 0 ? 'newer' : 'current',
-    note: "Laptop makers customise Intel drivers; if you have problems, use your laptop maker's version."
+    note: "Laptop makers customize Intel drivers; if you have problems, use your laptop maker's version."
   };
 }
 
@@ -286,7 +286,7 @@ async function checkIntelWireless(d, wifi, ctx) {
     ...base,
     latest,
     status: cmp(d.ver, latest) < 0 ? 'newer' : 'current',
-    note: "Laptop makers customise Intel wireless drivers; if you have problems, use your laptop maker's version."
+    note: "Laptop makers customize Intel wireless drivers; if you have problems, use your laptop maker's version."
   };
 }
 

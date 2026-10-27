@@ -296,7 +296,7 @@
     root.innerHTML =
       '<div class="cht-card" style="max-width:520px">' +
         '<h3>Join a friend\u2019s server</h3>' +
-        '<p class="cht-note">Paste the address your friend copied from their Test page. It looks like <code>http://192.168.1.5:3000</code> on the same network or a VPN, or <code>https://\u2026.trycloudflare.com</code> for their internet link.</p>' +
+        '<p class="cht-note">Paste the address your friend copied from their chat’s Server settings. It looks like <code>http://192.168.1.5:3000</code> on the same network or a VPN, or <code>https://\u2026.trycloudflare.com</code> for their internet link.</p>' +
         '<label class="cht-f">Server address<input type="text" data-j="addr" maxlength="200" spellcheck="false" autocomplete="off" value="' + esc(saved.address || '') + '"></label>' +
         '<label class="cht-f">Your name in their chat<input type="text" data-j="name" maxlength="24" value="' + esc(saved.name || '') + '"></label>' +
         '<label class="cht-f">Server password (if they set one)<input type="password" data-j="pw" maxlength="128" autocomplete="off"></label>' +
