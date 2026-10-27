@@ -11,7 +11,12 @@ test('cmp orders dotted versions numerically, not as text', () => {
 });
 
 test('cmp treats missing parts as zero and is antisymmetric', () => {
-  for (const [a, b] of [['1.0', '1'], ['3.4.5', '3.4'], ['0.9', '1.0.0']]) assert.equal(cmp(a, b) + 0, -cmp(b, a) + 0);
+  for (const [a, b] of [
+    ['1.0', '1'],
+    ['3.4.5', '3.4'],
+    ['0.9', '1.0.0']
+  ])
+    assert.equal(cmp(a, b) + 0, -cmp(b, a) + 0);
 });
 
 test('major extracts the leading number or 0', () => {
@@ -29,7 +34,8 @@ test('vendorOf recognises GPU vendors and skips virtual adapters', () => {
 });
 
 test('parseLookup reads NVIDIA lookup XML including parent ids', () => {
-  const xml = '<LookupValueCollection><LookupValue ParentID="3"><Name> GeForce RTX 4070 </Name><Value>1001</Value></LookupValue><LookupValue><Name>Series</Name><Value>7</Value></LookupValue></LookupValueCollection>';
+  const xml =
+    '<LookupValueCollection><LookupValue ParentID="3"><Name> GeForce RTX 4070 </Name><Value>1001</Value></LookupValue><LookupValue><Name>Series</Name><Value>7</Value></LookupValue></LookupValueCollection>';
   assert.deepEqual(parseLookup(xml), [
     { name: 'GeForce RTX 4070', value: '1001', parent: '3' },
     { name: 'Series', value: '7', parent: '' }

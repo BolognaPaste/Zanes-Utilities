@@ -83,5 +83,7 @@ test('load() rejects tampered or unsafe config files and accepts a valid one', (
     assert.equal(lock.load(f).auto, 0, 'unknown auto-lock minutes fall back to off');
     fs.writeFileSync(f, 'not json');
     assert.equal(lock.load(f), null);
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

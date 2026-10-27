@@ -5,17 +5,28 @@ const NV_LOOKUP = 'https://www.nvidia.com/Download/API/lookupValueSearch.aspx';
 const NV_PAGE = 'https://www.nvidia.com/en-us/drivers/';
 const AMD_PAGE = 'https://www.amd.com/en/support/download/drivers.html';
 const INTEL_ARC = 'https://www.intel.com/content/www/us/en/download/785597/intel-arc-iris-xe-graphics-windows.html';
-const INTEL_XE = 'https://www.intel.com/content/www/us/en/support/products/211012/graphics/processor-graphics/intel-iris-xe-graphics-family.html';
+const INTEL_XE =
+  'https://www.intel.com/content/www/us/en/support/products/211012/graphics/processor-graphics/intel-iris-xe-graphics-family.html';
 
 const NV_DL = /^https:\/\/([a-z0-9-]+\.)*download\.nvidia\.com\/[^\s?#]+\.exe$/i;
 
-const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
-const text = html => String(html).replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/\s+/g, ' ');
+const norm = s =>
+  String(s || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+const text = html =>
+  String(html)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ')
+    .replace(/\s+/g, ' ');
 
 function cmp(a, b) {
-  const A = String(a).split('.').map(Number), B = String(b).split('.').map(Number);
+  const A = String(a).split('.').map(Number),
+    B = String(b).split('.').map(Number);
   for (let i = 0; i < Math.max(A.length, B.length); i++) {
-    const x = A[i] || 0, y = B[i] || 0;
+    const x = A[i] || 0,
+      y = B[i] || 0;
     if (x !== y) return x < y ? -1 : 1;
   }
   return 0;
@@ -47,7 +58,8 @@ function nvidiaSeries(name) {
   const mobile = /laptop|notebook|max-q|mobile/i.test(name) || /\b\d{3,4}M\b/i.test(name);
   const m = /\b(RTX|GTX|GT|MX)\s*(\d{3,4})/i.exec(name);
   if (!m) return null;
-  const kind = m[1].toUpperCase(), n = +m[2];
+  const kind = m[1].toUpperCase(),
+    n = +m[2];
   if (kind === 'MX') {
     const h = Math.floor(n / 100) * 100;
     return ['GeForce MX' + h + ' Series (Notebooks)', 'GeForce MX' + h + ' Series (Notebook)'];
@@ -73,16 +85,32 @@ function safeNvPage(u) {
   try {
     const x = new URL(decodeURIComponent(String(u || '')));
     return x.protocol === 'https:' && /(^|\.)nvidia\.com$/i.test(x.hostname) ? x.href : '';
-  } catch { return ''; }
+  } catch {
+    return '';
+  }
 }
 
 async function checkNvidia(gpu, ctx) {
-  const base = { vendor: 'NVIDIA', gpu: gpu.name, installed: nvidiaInstalled(gpu.ver), page: NV_PAGE, source: 'NVIDIA driver lookup service' };
+  const base = {
+    vendor: 'NVIDIA',
+    gpu: gpu.name,
+    installed: nvidiaInstalled(gpu.ver),
+    page: NV_PAGE,
+    source: 'NVIDIA driver lookup service'
+  };
   const cands = nvidiaSeries(gpu.name);
-  if (!cands) return { ...base, status: 'unknown', note: 'This looks like a professional or older card. Check NVIDIA\'s driver page for the right download.' };
+  if (!cands)
+    return {
+      ...base,
+      status: 'unknown',
+      note: "This looks like a professional or older card. Check NVIDIA's driver page for the right download."
+    };
 
   const series = parseLookup(await ctx.get(NV_LOOKUP + '?TypeID=2')).filter(x => x.parent === '1');
-  const hit = cands.map(norm).map(c => series.find(x => norm(x.name) === c)).find(Boolean);
+  const hit = cands
+    .map(norm)
+    .map(c => series.find(x => norm(x.name) === c))
+    .find(Boolean);
   if (!hit) return { ...base, status: 'unknown', note: 'NVIDIA\'s list has no series matching "' + cands[0] + '".' };
 
   let osid = (ctx.build || 0) >= 22000 ? '135' : '57';
@@ -90,23 +118,33 @@ async function checkNvidia(gpu, ctx) {
     const want = (ctx.build || 0) >= 22000 ? 'windows 11' : 'windows 10 64-bit';
     const o = parseLookup(await ctx.get(NV_LOOKUP + '?TypeID=4')).find(x => norm(x.name) === want);
     if (o) osid = o.value;
-  } catch { }
+  } catch {}
 
-  const url = NV_HOST + '/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup' +
-    '&psid=' + hit.value + '&osID=' + osid + '&languageCode=1033&beta=0&isWHQL=1&dltype=-1&dch=1&upCRD=0&qnf=0&sort1=0&numberOfResults=1';
+  const url =
+    NV_HOST +
+    '/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup' +
+    '&psid=' +
+    hit.value +
+    '&osID=' +
+    osid +
+    '&languageCode=1033&beta=0&isWHQL=1&dltype=-1&dch=1&upCRD=0&qnf=0&sort1=0&numberOfResults=1';
   let info;
   try {
     const j = JSON.parse(await ctx.get(url));
     info = j && j.IDS && j.IDS[0] && j.IDS[0].downloadInfo;
-  } catch { info = null; }
+  } catch {
+    info = null;
+  }
   if (!info || !info.Version) return { ...base, status: 'unknown', note: 'NVIDIA returned no driver for ' + hit.name + '.' };
 
   let dl = String(info.DownloadURL || '').replace(/^http:\/\//i, 'https://');
   if (!NV_DL.test(dl)) dl = '';
   const latest = String(info.Version);
-  const status = !base.installed ? 'unknown' : (cmp(base.installed, latest) < 0 ? 'newer' : 'current');
+  const status = !base.installed ? 'unknown' : cmp(base.installed, latest) < 0 ? 'newer' : 'current';
   return {
-    ...base, status, latest,
+    ...base,
+    status,
+    latest,
     released: String(info.ReleaseDateTime || '').trim(),
     size: String(info.DownloadURLFileSize || '').trim(),
     page: safeNvPage(info.DetailsURL) || NV_PAGE,
@@ -128,28 +166,50 @@ async function checkAmd(gpu, ctx) {
   const base = { vendor: 'AMD', gpu: gpu.name, installed: gpu.ver, page: AMD_PAGE, source: 'AMD release notes' };
   const now = new Date();
   let found = null;
-  outer:
-  for (let back = 0; back < 3; back++) {
+  outer: for (let back = 0; back < 3; back++) {
     const d = new Date(now.getFullYear(), now.getMonth() - back, 1);
-    const yy = String(d.getFullYear()).slice(-2), mm = d.getMonth() + 1;
+    const yy = String(d.getFullYear()).slice(-2),
+      mm = d.getMonth() + 1;
     for (let n = 6; n >= 1; n--) {
       const url = 'https://www.amd.com/en/resources/support-articles/release-notes/RN-RAD-WIN-' + yy + '-' + mm + '-' + n + '.html';
       let html;
-      try { html = await ctx.get(url); }
-      catch (e) { if (e.status === 404) continue; throw e; }
+      try {
+        html = await ctx.get(url);
+      } catch (e) {
+        if (e.status === 404) continue;
+        throw e;
+      }
       const p = parseAmdNotes(html);
-      if (p) { found = { ...p, url }; break outer; }
+      if (p) {
+        found = { ...p, url };
+        break outer;
+      }
     }
   }
-  if (!found) return { ...base, status: 'unknown', note: 'Could not read AMD\'s recent release notes. AMD\'s site may block automated requests, so open the page instead.' };
+  if (!found)
+    return {
+      ...base,
+      status: 'unknown',
+      note: "Could not read AMD's recent release notes. AMD's site may block automated requests, so open the page instead."
+    };
 
   const branch = v => (v.split('.')[2] || '').slice(0, 2);
   const mine = found.versions.filter(v => branch(v) === branch(gpu.ver));
   const page = found.url;
-  if (!mine.length) return { ...base, page, latest: found.adrenalin, released: found.released, status: 'unknown', note: 'The newest AMD release does not list a driver for your GPU generation.' };
+  if (!mine.length)
+    return {
+      ...base,
+      page,
+      latest: found.adrenalin,
+      released: found.released,
+      status: 'unknown',
+      note: 'The newest AMD release does not list a driver for your GPU generation.'
+    };
   const latestStore = mine.sort(cmp)[mine.length - 1];
   return {
-    ...base, page, latest: found.adrenalin ? found.adrenalin + ' (driver ' + latestStore + ')' : latestStore,
+    ...base,
+    page,
+    latest: found.adrenalin ? found.adrenalin + ' (driver ' + latestStore + ')' : latestStore,
     released: found.released,
     status: cmp(gpu.ver, latestStore) < 0 ? 'newer' : 'current',
     note: 'AMD only offers the download through its own site; use the page link.'
@@ -162,24 +222,32 @@ async function checkIntel(gpu, ctx) {
   const rx = arc ? /Graphics Driver\s+(\d+\.\d+\.\d+\.\d+)/i : /Version:\s*(\d+\.\d+\.\d+\.\d+)/i;
   const base = { vendor: 'Intel', gpu: gpu.name, installed: gpu.ver, page: url, source: 'Intel download center' };
   const m = rx.exec(text(await ctx.get(url)));
-  if (!m) return { ...base, status: 'unknown', note: 'Could not read the version from Intel\'s page. Open it to check manually.' };
+  if (!m) return { ...base, status: 'unknown', note: "Could not read the version from Intel's page. Open it to check manually." };
   const latest = m[1];
   const track = v => v.split('.').slice(0, 2).join('.');
   if (track(latest) !== track(gpu.ver)) {
-    return { ...base, latest, status: 'unknown', note: 'Your Intel GPU uses a different driver track than the newest package. Check Intel\'s page for your model.' };
+    return {
+      ...base,
+      latest,
+      status: 'unknown',
+      note: "Your Intel GPU uses a different driver track than the newest package. Check Intel's page for your model."
+    };
   }
   return {
-    ...base, latest, status: cmp(gpu.ver, latest) < 0 ? 'newer' : 'current',
-    note: 'Laptop makers customise Intel drivers; if you have problems, use your laptop maker\'s version.'
+    ...base,
+    latest,
+    status: cmp(gpu.ver, latest) < 0 ? 'newer' : 'current',
+    note: "Laptop makers customise Intel drivers; if you have problems, use your laptop maker's version."
   };
 }
 
-
 const INTEL_WIFI = 'https://www.intel.com/content/www/us/en/download/19351/intel-wireless-wi-fi-drivers-for-windows-10-and-windows-11.html';
-const INTEL_BT = 'https://www.intel.com/content/www/us/en/download/18649/intel-wireless-bluetooth-drivers-for-windows-10-and-windows-11.html';
+const INTEL_BT =
+  'https://www.intel.com/content/www/us/en/download/18649/intel-wireless-bluetooth-drivers-for-windows-10-and-windows-11.html';
 const INTEL_CHIPSET = 'https://www.intel.com/content/www/us/en/download/19347/chipset-inf-utility.html';
 const INTEL_DSA = 'https://www.intel.com/content/www/us/en/support/detect.html';
-const AMD_CHIPSET = 'https://www.amd.com/en/support/downloads/drivers.html/chipsets/laptop-chipsets/amd-ryzen-and-athlon-mobile-chipset.html';
+const AMD_CHIPSET =
+  'https://www.amd.com/en/support/downloads/drivers.html/chipsets/laptop-chipsets/amd-ryzen-and-athlon-mobile-chipset.html';
 
 const isIntel = d => /intel/i.test((d.mfr || '') + ' ' + (d.prov || '')) || /VEN_8086/i.test(d.id || '');
 const isAmd = d => /\bamd\b|advanced micro/i.test((d.mfr || '') + ' ' + (d.prov || '')) || /VEN_1022/i.test(d.id || '');
@@ -187,8 +255,10 @@ const major = v => Number(String(v).split('.')[0]) || 0;
 const AMD_CHIPSET_DEV = /amd (psp|gpio|i2c|uart|smbus|pci|pmf|sfh|iov|usb4|micropep|s0i3|wireless button|3d v-cache|hsmp|ams mailbox|ppm)/i;
 
 function intelVersions(html, model) {
-  const t = text(html), out = [];
-  for (const m of t.matchAll(/driver version\s*:?\s*(\d+\.\d+\.\d+\.\d+)([^]{0,400})/gi)) out.push({ v: m[1], near: m[2].replace(/\s+/g, '').toLowerCase() });
+  const t = text(html),
+    out = [];
+  for (const m of t.matchAll(/driver version\s*:?\s*(\d+\.\d+\.\d+\.\d+)([^]{0,400})/gi))
+    out.push({ v: m[1], near: m[2].replace(/\s+/g, '').toLowerCase() });
   if (!model) return out.map(x => x.v);
   const tok = model.replace(/\s+/g, '').toLowerCase();
   const mine = out.filter(x => x.near.includes(tok));
@@ -197,37 +267,77 @@ function intelVersions(html, model) {
 
 async function checkIntelWireless(d, wifi, ctx) {
   const url = wifi ? INTEL_WIFI : INTEL_BT;
-  const base = { vendor: 'Intel', category: wifi ? 'Wi-Fi' : 'Bluetooth', gpu: d.name, installed: d.ver, page: url, source: 'Intel download center' };
+  const base = {
+    vendor: 'Intel',
+    category: wifi ? 'Wi-Fi' : 'Bluetooth',
+    gpu: d.name,
+    installed: d.ver,
+    page: url,
+    source: 'Intel download center'
+  };
   const model = (/\b(BE\d{3}|AX\d{3}|AC[- ]?\d{4}|9\d{3}|8\d{3}|7\d{3}|3165|3168)\b/i.exec(d.name) || [])[1] || '';
   const all = intelVersions(await ctx.get(url), model);
   const newLine = major(d.ver) >= 20;
-  const same = all.filter(v => (major(v) >= 20) === newLine);
-  if (!same.length) return { ...base, status: 'unknown', note: 'Could not find a version for this adapter on Intel\'s page. Open it to check manually.' };
+  const same = all.filter(v => major(v) >= 20 === newLine);
+  if (!same.length)
+    return { ...base, status: 'unknown', note: "Could not find a version for this adapter on Intel's page. Open it to check manually." };
   const latest = same.sort(cmp)[same.length - 1];
   return {
-    ...base, latest, status: cmp(d.ver, latest) < 0 ? 'newer' : 'current',
-    note: 'Laptop makers customise Intel wireless drivers; if you have problems, use your laptop maker\'s version.'
+    ...base,
+    latest,
+    status: cmp(d.ver, latest) < 0 ? 'newer' : 'current',
+    note: "Laptop makers customise Intel wireless drivers; if you have problems, use your laptop maker's version."
   };
 }
 
 async function checkIntelChipset(app, ctx) {
-  const base = { vendor: 'Intel', category: 'Chipset', gpu: app.name, installed: app.ver, page: INTEL_CHIPSET, source: 'Intel download center' };
+  const base = {
+    vendor: 'Intel',
+    category: 'Chipset',
+    gpu: app.name,
+    installed: app.ver,
+    page: INTEL_CHIPSET,
+    source: 'Intel download center'
+  };
   const m = /utility version\s+(\d+\.\d+\.\d+\.\d+)/i.exec(text(await ctx.get(INTEL_CHIPSET)));
-  if (!m) return { ...base, status: 'unknown', note: 'Could not read the version from Intel\'s page. Open it to check manually.' };
+  if (!m) return { ...base, status: 'unknown', note: "Could not read the version from Intel's page. Open it to check manually." };
   return {
-    ...base, latest: m[1], status: cmp(app.ver, m[1]) < 0 ? 'newer' : 'current',
+    ...base,
+    latest: m[1],
+    status: cmp(app.ver, m[1]) < 0 ? 'newer' : 'current',
     note: 'This package mostly sets the device names shown in Device Manager, so skipping it is usually harmless.'
   };
 }
 
 async function checkAmdChipset(app, ctx) {
-  const base = { vendor: 'AMD', category: 'Chipset', gpu: app ? app.name : 'AMD Ryzen chipset drivers', installed: app ? app.ver : '', page: AMD_CHIPSET, source: 'AMD support page' };
+  const base = {
+    vendor: 'AMD',
+    category: 'Chipset',
+    gpu: app ? app.name : 'AMD Ryzen chipset drivers',
+    installed: app ? app.ver : '',
+    page: AMD_CHIPSET,
+    source: 'AMD support page'
+  };
   const t = text(await ctx.get(AMD_CHIPSET));
   const m = /AMD Chipset Drivers\s+Revision Number\s+(\d+\.\d+\.\d+\.\d+)(?:[^]{0,200}?Release Date\s+(\d{4}-\d{2}-\d{2}))?/i.exec(t);
-  if (!m) return { ...base, status: 'unknown', note: 'Could not read the version from AMD\'s page. AMD\'s site may block automated requests, so open the page instead.' };
+  if (!m)
+    return {
+      ...base,
+      status: 'unknown',
+      note: "Could not read the version from AMD's page. AMD's site may block automated requests, so open the page instead."
+    };
   const res = { ...base, latest: m[1], released: m[2] || '' };
-  if (!app) return { ...res, status: 'unknown', note: 'AMD chipset components were found, but not AMD\'s chipset package, so there is no version to compare. AMD only offers the download through its own site.' };
-  return { ...res, status: cmp(app.ver, m[1]) < 0 ? 'newer' : 'current', note: 'AMD only offers the download through its own site; use the page link.' };
+  if (!app)
+    return {
+      ...res,
+      status: 'unknown',
+      note: "AMD chipset components were found, but not AMD's chipset package, so there is no version to compare. AMD only offers the download through its own site."
+    };
+  return {
+    ...res,
+    status: cmp(app.ver, m[1]) < 0 ? 'newer' : 'current',
+    note: 'AMD only offers the download through its own site; use the page link.'
+  };
 }
 
 const JUNK = /system manufacturer|to be filled|default string|o\.e\.m|^$/i;
@@ -235,7 +345,10 @@ const JUNK = /system manufacturer|to be filled|default string|o\.e\.m|^$/i;
 function oemLink(pc) {
   const maker = norm(JUNK.test(pc.mfr || '') ? pc.prov : pc.mfr);
   const tag = String(pc.ver || '').trim();
-  if (/dell|alienware/.test(maker)) return /^[a-z0-9]{7}$/i.test(tag) ? 'https://www.dell.com/support/home/en-us/product-support/servicetag/' + tag + '/drivers' : 'https://www.dell.com/support/home/en-us';
+  if (/dell|alienware/.test(maker))
+    return /^[a-z0-9]{7}$/i.test(tag)
+      ? 'https://www.dell.com/support/home/en-us/product-support/servicetag/' + tag + '/drivers'
+      : 'https://www.dell.com/support/home/en-us';
   if (/\bhp\b|hewlett/.test(maker)) return 'https://support.hp.com/us-en/drivers';
   if (/lenovo/.test(maker)) return 'https://support.lenovo.com/us/en/';
   if (/asus/.test(maker)) return 'https://www.asus.com/support/download-center/';
@@ -246,35 +359,62 @@ function oemLink(pc) {
   return '';
 }
 
-const tidyVendor = s => String(s || '').replace(/\((r|tm)\)/gi, '').replace(/[,.]?\s*\b(inc|corporation|corp|co|ltd|llc|gmbh|technologies|technology|semiconductor)\b\.?/gi, '').replace(/\s+/g, ' ').trim();
+const tidyVendor = s =>
+  String(s || '')
+    .replace(/\((r|tm)\)/gi, '')
+    .replace(/[,.]?\s*\b(inc|corporation|corp|co|ltd|llc|gmbh|technologies|technology|semiconductor)\b\.?/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 const GENERIC = /^(microsoft|\(standard|standard|generic|windows|unknown|nvidia)|^$/i;
 
 async function checkComponents(devs, ctx) {
-  const out = [], used = new Set(), done = new Set();
-  const drv = devs.filter(d => d.k === 'drv'), apps = devs.filter(d => d.k === 'app'), pc = devs.find(d => d.k === 'pc');
+  const out = [],
+    used = new Set(),
+    done = new Set();
+  const drv = devs.filter(d => d.k === 'drv'),
+    apps = devs.filter(d => d.k === 'app'),
+    pc = devs.find(d => d.k === 'pc');
 
   async function run(key, label, fn) {
     if (done.has(key)) return;
     done.add(key);
-    try { out.push(await fn()); }
-    catch (e) {
-      out.push({ vendor: label, category: 'Other', gpu: label, installed: '', status: 'unknown', page: '', source: label,
-        note: 'Could not check ' + label + '\'s site: ' + (e && e.message ? e.message : e) });
+    try {
+      out.push(await fn());
+    } catch (e) {
+      out.push({
+        vendor: label,
+        category: 'Other',
+        gpu: label,
+        installed: '',
+        status: 'unknown',
+        page: '',
+        source: label,
+        note: 'Could not check ' + label + "'s site: " + (e && e.message ? e.message : e)
+      });
     }
   }
 
   let amdChipsetSeen = false;
   for (const d of drv) {
     const cls = String(d.cls || '');
-    if (isIntel(d) && /^net$/i.test(cls) && /wi-?fi|wireless|wlan|802\.11/i.test(d.name) && !/virtual|direct|miniport|\bwan\b/i.test(d.name)) {
+    if (
+      isIntel(d) &&
+      /^net$/i.test(cls) &&
+      /wi-?fi|wireless|wlan|802\.11/i.test(d.name) &&
+      !/virtual|direct|miniport|\bwan\b/i.test(d.name)
+    ) {
       used.add(d);
       await run('wifi|' + d.name + '|' + d.ver, 'Intel', () => checkIntelWireless(d, true, ctx));
     } else if (isIntel(d) && /bluetooth/i.test(d.name) && !/enumerator|rfcomm|gatt|generic/i.test(d.name)) {
       used.add(d);
       await run('bt|' + d.name + '|' + d.ver, 'Intel', () => checkIntelWireless(d, false, ctx));
     } else if (isAmd(d) && AMD_CHIPSET_DEV.test(d.name)) {
-      used.add(d); amdChipsetSeen = true;
-    } else if (/^display$/i.test(cls) || (/display audio|hdmi audio|high definition audio/i.test(d.name) && /nvidia|amd|intel/i.test(d.mfr + ' ' + d.prov))) {
+      used.add(d);
+      amdChipsetSeen = true;
+    } else if (
+      /^display$/i.test(cls) ||
+      (/display audio|hdmi audio|high definition audio/i.test(d.name) && /nvidia|amd|intel/i.test(d.mfr + ' ' + d.prov))
+    ) {
       used.add(d);
     }
   }
@@ -298,39 +438,59 @@ async function checkComponents(devs, ctx) {
   for (const [v, g] of [...groups.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 8)) {
     const intel = /^intel/i.test(v);
     out.push({
-      vendor: v, category: 'Other', gpu: v + ' devices (' + g.n + ')', installed: '', status: 'manual',
-      page: intel ? INTEL_DSA : link, source: intel ? 'Intel' : 'PC maker',
-      note: (intel
-        ? 'Intel publishes no version feed for these; its Driver & Support Assistant can check them. '
-        : v + ' publishes no version feed, so these cannot be compared automatically; your PC or motherboard maker\'s page has the drivers it supports. ') +
-        'Includes: ' + g.names.join(', ') + (g.n > g.names.length ? ' and more' : '') + '.'
+      vendor: v,
+      category: 'Other',
+      gpu: v + ' devices (' + g.n + ')',
+      installed: '',
+      status: 'manual',
+      page: intel ? INTEL_DSA : link,
+      source: intel ? 'Intel' : 'PC maker',
+      note:
+        (intel
+          ? 'Intel publishes no version feed for these; its Driver & Support Assistant can check them. '
+          : v +
+            " publishes no version feed, so these cannot be compared automatically; your PC or motherboard maker's page has the drivers it supports. ") +
+        'Includes: ' +
+        g.names.join(', ') +
+        (g.n > g.names.length ? ' and more' : '') +
+        '.'
     });
   }
   if (pc && link) {
     out.push({
-      vendor: tidyVendor(JUNK.test(pc.mfr || '') ? pc.prov : pc.mfr) || 'PC maker', category: 'PC maker',
-      gpu: pc.name || 'This PC', installed: '', status: 'manual', page: link, source: 'PC maker',
-      note: 'The maker\'s own page lists every driver it supports for this model, including the ones that cannot be checked automatically.'
+      vendor: tidyVendor(JUNK.test(pc.mfr || '') ? pc.prov : pc.mfr) || 'PC maker',
+      category: 'PC maker',
+      gpu: pc.name || 'This PC',
+      installed: '',
+      status: 'manual',
+      page: link,
+      source: 'PC maker',
+      note: "The maker's own page lists every driver it supports for this model, including the ones that cannot be checked automatically."
     });
   }
   return out;
 }
 
 async function checkAll(gpus, ctx) {
-  const seen = new Set(), out = [];
+  const seen = new Set(),
+    out = [];
   for (const g of gpus) {
     const v = vendorOf(g);
     const key = g.name + '|' + g.ver;
     if (!v || seen.has(key)) continue;
     seen.add(key);
     try {
-      out.push(await ({ nvidia: checkNvidia, amd: checkAmd, intel: checkIntel })[v](g, ctx));
+      out.push(await { nvidia: checkNvidia, amd: checkAmd, intel: checkIntel }[v](g, ctx));
     } catch (e) {
       const label = { nvidia: 'NVIDIA', amd: 'AMD', intel: 'Intel' }[v];
       out.push({
-        vendor: label, gpu: g.name, installed: v === 'nvidia' ? nvidiaInstalled(g.ver) : g.ver, status: 'unknown',
-        page: { nvidia: NV_PAGE, amd: AMD_PAGE, intel: INTEL_ARC }[v], source: label,
-        note: 'Could not check ' + label + '\'s site: ' + (e && e.message ? e.message : e)
+        vendor: label,
+        gpu: g.name,
+        installed: v === 'nvidia' ? nvidiaInstalled(g.ver) : g.ver,
+        status: 'unknown',
+        page: { nvidia: NV_PAGE, amd: AMD_PAGE, intel: INTEL_ARC }[v],
+        source: label,
+        note: 'Could not check ' + label + "'s site: " + (e && e.message ? e.message : e)
       });
     }
   }
@@ -348,7 +508,8 @@ async function downloadFile(fetchFn, url, dest, onProgress) {
   const out = fs.createWriteStream(part);
   const failed = new Promise((_, rej) => out.on('error', rej));
   failed.catch(() => {});
-  let got = 0, last = 0;
+  let got = 0,
+    last = 0;
   try {
     const reader = res.body.getReader();
     for (;;) {
@@ -357,14 +518,19 @@ async function downloadFile(fetchFn, url, dest, onProgress) {
       got += value.length;
       if (got > MAX_DOWNLOAD) throw new Error('The download was larger than expected, so it was stopped.');
       if (!out.write(value)) await Promise.race([new Promise(r => out.once('drain', r)), failed]);
-      if (Date.now() - last > 250) { last = Date.now(); onProgress && onProgress(got, total); }
+      if (Date.now() - last > 250) {
+        last = Date.now();
+        onProgress && onProgress(got, total);
+      }
     }
     await new Promise((ok, bad) => out.end(e => (e ? bad(e) : ok())));
     fs.renameSync(part, dest);
     onProgress && onProgress(got, total);
   } catch (e) {
     out.destroy();
-    try { fs.unlinkSync(part); } catch {}
+    try {
+      fs.unlinkSync(part);
+    } catch {}
     throw e;
   }
   return got;

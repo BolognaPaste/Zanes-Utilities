@@ -18,8 +18,12 @@ function fakeEl() {
       if (k === 'addEventListener') return () => {};
       return fakeEl();
     },
-    set() { return true; },
-    apply() { return fakeEl(); }
+    set() {
+      return true;
+    },
+    apply() {
+      return fakeEl();
+    }
   });
   return el;
 }
@@ -27,12 +31,54 @@ function fakeEl() {
 function load(file, extra) {
   const store = {};
   const sandbox = {
-    console, setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, Date, Math, JSON, DataView, ArrayBuffer, Uint8Array, BigInt,
-    Promise, Map, Set, RegExp, Error, Number, String, Array, Object, parseInt, parseFloat, isFinite, isNaN,
-    document: { querySelector: fakeEl, querySelectorAll: () => [], getElementById: fakeEl, createElement: fakeEl, addEventListener() {}, body: fakeEl(), documentElement: fakeEl() },
-    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } },
-    addEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {} }),
-    requestAnimationFrame: () => 0, requestIdleCallback: () => 0, navigator: { userAgent: 'node', clipboard: {} },
+    console,
+    setTimeout,
+    clearTimeout,
+    setInterval: () => 0,
+    clearInterval() {},
+    Date,
+    Math,
+    JSON,
+    DataView,
+    ArrayBuffer,
+    Uint8Array,
+    BigInt,
+    Promise,
+    Map,
+    Set,
+    RegExp,
+    Error,
+    Number,
+    String,
+    Array,
+    Object,
+    parseInt,
+    parseFloat,
+    isFinite,
+    isNaN,
+    document: {
+      querySelector: fakeEl,
+      querySelectorAll: () => [],
+      getElementById: fakeEl,
+      createElement: fakeEl,
+      addEventListener() {},
+      body: fakeEl(),
+      documentElement: fakeEl()
+    },
+    localStorage: {
+      getItem: k => (k in store ? store[k] : null),
+      setItem: (k, v) => {
+        store[k] = String(v);
+      },
+      removeItem: k => {
+        delete store[k];
+      }
+    },
+    addEventListener() {},
+    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    requestAnimationFrame: () => 0,
+    requestIdleCallback: () => 0,
+    navigator: { userAgent: 'node', clipboard: {} },
     ...(extra || {})
   };
   sandbox.window = sandbox;

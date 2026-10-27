@@ -9,13 +9,32 @@ const MAGIC2 = Buffer.from('ZUE2');
 const LEGACY_DATA = 'zu-data.bin';
 const BUCKET = 4096;
 const DELAY = 400;
-const KNOWN = ['ssh-known-hosts.json', 'optimizer-backup.json', 'optimizer-games.json', 'mumble/mumble.json',
-  'chat/state.json', 'chat/remote.json', 'chat/identities.json', 'chat/tunnel.json'];
+const KNOWN = [
+  'ssh-known-hosts.json',
+  'optimizer-backup.json',
+  'optimizer-games.json',
+  'mumble/mumble.json',
+  'chat/state.json',
+  'chat/remote.json',
+  'chat/identities.json',
+  'chat/tunnel.json'
+];
 
-let dir = '', key = null, outer = null, nameKey = null, bundle = null, method = 'off';
+let dir = '',
+  key = null,
+  outer = null,
+  nameKey = null,
+  bundle = null,
+  method = 'off';
 let pending = false;
-let data = new Map(), existed = false;
-let loadedReal = false, wiped = false, dirty = false, writing = false, timer = 0, seq = 0;
+let data = new Map(),
+  existed = false;
+let loadedReal = false,
+  wiped = false,
+  dirty = false,
+  writing = false,
+  timer = 0,
+  seq = 0;
 
 const hk = (secret, info) => Buffer.from(crypto.hkdfSync('sha256', secret, Buffer.from('zu-v2'), Buffer.from(info), 32));
 const dataFile = () => path.join(dir, crypto.createHmac('sha256', nameKey).update('data').digest('hex').slice(0, 24) + '.zud');
@@ -31,7 +50,11 @@ function install(r) {
   upgrade(KNOWN);
 }
 function forgetKeys() {
-  for (const b of [key, outer, nameKey]) { try { if (b) b.fill(0); } catch {} }
+  for (const b of [key, outer, nameKey]) {
+    try {
+      if (b) b.fill(0);
+    } catch {}
+  }
   ks.wipeBundle(bundle);
   key = outer = nameKey = bundle = null;
 }
@@ -83,7 +106,7 @@ function unseal(b) {
   }
   return openInner(x);
 }
-const tmpName = f => f + '.' + process.pid + '.' + (++seq) + '.tmp';
+const tmpName = f => f + '.' + process.pid + '.' + ++seq + '.tmp';
 function writeBufSync(file, buf) {
   const tmp = tmpName(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -96,14 +119,18 @@ async function writeBuf(file, buf) {
   await fsp.writeFile(tmp, buf, { mode: 0o600 });
   await fsp.rename(tmp, file);
 }
-const needKey = () => { if (!key && pending) throw new Error('Saved data is locked until the password is entered.'); };
+const needKey = () => {
+  if (!key && pending) throw new Error('Saved data is locked until the password is entered.');
+};
 
 function readTextSync(file) {
-  const b = fs.readFileSync(file), t = unseal(b);
+  const b = fs.readFileSync(file),
+    t = unseal(b);
   return (t || b).toString('utf8');
 }
 async function readText(file) {
-  const b = await fsp.readFile(file), t = unseal(b);
+  const b = await fsp.readFile(file),
+    t = unseal(b);
   return (t || b).toString('utf8');
 }
 function writeTextSync(file, text) {
@@ -129,10 +156,21 @@ function upgrade(rel) {
 }
 
 function loadData() {
-  const f = dataFile(), old = path.join(dir, LEGACY_DATA);
-  let b, from = f;
-  try { b = fs.readFileSync(f); } catch {
-    try { b = fs.readFileSync(old); from = old; } catch { existed = false; data = new Map(); return; }
+  const f = dataFile(),
+    old = path.join(dir, LEGACY_DATA);
+  let b,
+    from = f;
+  try {
+    b = fs.readFileSync(f);
+  } catch {
+    try {
+      b = fs.readFileSync(old);
+      from = old;
+    } catch {
+      existed = false;
+      data = new Map();
+      return;
+    }
   }
   try {
     const t = unseal(b);
@@ -141,31 +179,55 @@ function loadData() {
     data = new Map(Object.entries(o && typeof o === 'object' ? o : {}).filter(([, v]) => typeof v === 'string'));
     existed = true;
   } catch {
-    try { fs.renameSync(from, from + '.unreadable'); } catch {}
-    existed = false; data = new Map();
+    try {
+      fs.renameSync(from, from + '.unreadable');
+    } catch {}
+    existed = false;
+    data = new Map();
     return;
   }
   if (from === old) {
-    dirty = true; flushSync();
-    if (!dirty) { try { fs.rmSync(old, { force: true }); } catch {} }
+    dirty = true;
+    flushSync();
+    if (!dirty) {
+      try {
+        fs.rmSync(old, { force: true });
+      } catch {}
+    }
   }
 }
 const pack = () => seal(Buffer.from(JSON.stringify(Object.fromEntries(data)), 'utf8'));
 
 function flushSync() {
-  clearTimeout(timer); timer = 0;
+  clearTimeout(timer);
+  timer = 0;
   if (!dirty || !key) return;
   dirty = false;
-  try { writeBufSync(dataFile(), pack()); existed = true; } catch { dirty = true; }
+  try {
+    writeBufSync(dataFile(), pack());
+    existed = true;
+  } catch {
+    dirty = true;
+  }
 }
 async function flushAsync() {
   timer = 0;
   if (!dirty || !key) return;
-  if (writing) { schedule(); return; }
-  dirty = false; writing = true;
-  try { await writeBuf(dataFile(), pack()); existed = true; }
-  catch { dirty = true; }
-  finally { writing = false; if (dirty) schedule(); }
+  if (writing) {
+    schedule();
+    return;
+  }
+  dirty = false;
+  writing = true;
+  try {
+    await writeBuf(dataFile(), pack());
+    existed = true;
+  } catch {
+    dirty = true;
+  } finally {
+    writing = false;
+    if (dirty) schedule();
+  }
 }
 function schedule() {
   if (timer) return;
@@ -174,10 +236,18 @@ function schedule() {
 }
 
 function wipe() {
-  clearTimeout(timer); timer = 0;
-  dirty = false; data = new Map(); existed = false; wiped = true;
-  try { if (nameKey) fs.rmSync(dataFile(), { force: true }); } catch {}
-  try { fs.rmSync(path.join(dir, LEGACY_DATA), { force: true }); } catch {}
+  clearTimeout(timer);
+  timer = 0;
+  dirty = false;
+  data = new Map();
+  existed = false;
+  wiped = true;
+  try {
+    if (nameKey) fs.rmSync(dataFile(), { force: true });
+  } catch {}
+  try {
+    fs.rmSync(path.join(dir, LEGACY_DATA), { force: true });
+  } catch {}
 }
 
 const passwordMode = () => method === 'password';
@@ -193,45 +263,80 @@ async function unlockWithPassword(pw) {
 const fail = r => ({ ok: false, error: (r && r.error) || (r && r.wrong ? 'Wrong password.' : 'The keys could not be changed.') });
 async function usePassword(pw) {
   if (!key || pending || passwordMode()) return { ok: false, error: 'Not available right now.' };
-  try { const r = await ks.rewrap(bundle, null, pw); if (!r.ok) return fail(r); method = 'password'; flushSync(); return { ok: true }; }
-  catch { return { ok: false, error: 'The keys could not be changed. Nothing was changed.' }; }
+  try {
+    const r = await ks.rewrap(bundle, null, pw);
+    if (!r.ok) return fail(r);
+    method = 'password';
+    flushSync();
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'The keys could not be changed. Nothing was changed.' };
+  }
 }
 async function changePassword(current, pw) {
   if (!key || pending || !passwordMode()) return { ok: false, error: 'Not available right now.' };
-  try { const r = await ks.rewrap(bundle, current, pw); return r.ok ? { ok: true } : fail(r); }
-  catch { return { ok: false, error: 'The keys could not be changed. Nothing was changed.' }; }
+  try {
+    const r = await ks.rewrap(bundle, current, pw);
+    return r.ok ? { ok: true } : fail(r);
+  } catch {
+    return { ok: false, error: 'The keys could not be changed. Nothing was changed.' };
+  }
 }
 async function useWindows(current) {
   if (!key || pending || !passwordMode()) return { ok: false, error: 'Not available right now.' };
-  try { const r = await ks.rewrap(bundle, current, null); if (!r.ok) return fail(r); method = r.mode; return { ok: true }; }
-  catch { return { ok: false, error: 'The keys could not be changed. Nothing was changed.' }; }
+  try {
+    const r = await ks.rewrap(bundle, current, null);
+    if (!r.ok) return fail(r);
+    method = r.mode;
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'The keys could not be changed. Nothing was changed.' };
+  }
 }
 
 function register(ipcMain, ipc, { app, safeStorage, trusted, isLocked }) {
   dir = app.getPath('userData');
   ks.init(dir, safeStorage);
-  try { install(ks.loadAuto()); }
-  catch (e) {
+  try {
+    install(ks.loadAuto());
+  } catch (e) {
     key = outer = nameKey = bundle = null;
-    if (e && e.code === 'NEEDPW') { pending = true; method = 'password'; }
-    else method = 'off';
+    if (e && e.code === 'NEEDPW') {
+      pending = true;
+      method = 'password';
+    } else method = 'off';
   }
   app.on('before-quit', flushSync);
   process.on('exit', forgetKeys);
 
   ipcMain.on('store:load', e => {
-    if (!trusted(e)) { e.returnValue = { ok: false }; return; }
-    if (!key) { e.returnValue = pending && isLocked() ? { ok: true, locked: true, data: {} } : { ok: false }; return; }
-    if (isLocked()) { loadedReal = false; e.returnValue = { ok: true, locked: true, data: {} }; return; }
-    loadedReal = true; wiped = false;
+    if (!trusted(e)) {
+      e.returnValue = { ok: false };
+      return;
+    }
+    if (!key) {
+      e.returnValue = pending && isLocked() ? { ok: true, locked: true, data: {} } : { ok: false };
+      return;
+    }
+    if (isLocked()) {
+      loadedReal = false;
+      e.returnValue = { ok: true, locked: true, data: {} };
+      return;
+    }
+    loadedReal = true;
+    wiped = false;
     e.returnValue = { ok: true, locked: false, fresh: !existed, data: Object.fromEntries(data) };
   });
 
   ipcMain.on('store:import', (e, m) => {
-    if (!trusted(e) || !key || !loadedReal || wiped || existed || !m || typeof m.data !== 'object' || !m.data) { e.returnValue = { ok: false }; return; }
+    if (!trusted(e) || !key || !loadedReal || wiped || existed || !m || typeof m.data !== 'object' || !m.data) {
+      e.returnValue = { ok: false };
+      return;
+    }
     const next = new Map();
     for (const [k, v] of Object.entries(m.data)) if (typeof v === 'string' && k.length <= 512 && v.length <= 16e6) next.set(k, v);
-    data = next; dirty = true;
+    data = next;
+    dirty = true;
     flushSync();
     e.returnValue = { ok: existed };
   });
@@ -246,11 +351,24 @@ function register(ipcMain, ipc, { app, safeStorage, trusted, isLocked }) {
         else if (typeof o[1] === 'string' && o[1].length <= 16e6) data.set(o[0], o[1]);
       }
     }
-    dirty = true; schedule();
+    dirty = true;
+    schedule();
   });
 
   ipc.handle('store:status', () => ({ on: !!key, method, algo: 'AES-256-GCM', layers: 2, moves: true }));
 }
 
-module.exports = { register, wipe, readTextSync, readText, writeTextSync, writeText, upgrade,
-  passwordMode, unlockWithPassword, usePassword, changePassword, useWindows };
+module.exports = {
+  register,
+  wipe,
+  readTextSync,
+  readText,
+  writeTextSync,
+  writeText,
+  upgrade,
+  passwordMode,
+  unlockWithPassword,
+  usePassword,
+  changePassword,
+  useWindows
+};

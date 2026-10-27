@@ -17,16 +17,16 @@ Needs Windows 10 or 11 (x64) and Node 22 or newer. The bundled `scrcpy/`, `cloud
 
 ## Check it
 
-| Command | What it does |
-| --- | --- |
-| `npm test` | Unit and characterization tests (Node's built-in runner, no extra packages). Runs on any OS. |
-| `npm run test:e2e` | Starts the real app with a throwaway profile and clicks through it (Playwright). Run on Windows. |
-| `npm run lint` / `npm run format:check` | ESLint and Prettier. |
-| `npm run typecheck` | TypeScript check of the new modules (`logger.js`, `diagnostics.js`, `scripts/`, `test/`). |
-| `npm run baseline` | Writes timing numbers to `baseline/` (module load cost, PowerShell spawn cost on Windows). |
-| `npm run verify:binaries` | Compares bundled binaries against `binaries.sha256.json`. Create or refresh the file with `-- --update`. |
-| `npm run sbom` | CycloneDX list of shipped npm packages. |
-| `npm run check` | Lint, format check and unit tests together. |
+| Command                                 | What it does                                                                                             |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `npm test`                              | Unit and characterization tests (Node's built-in runner, no extra packages). Runs on any OS.             |
+| `npm run test:e2e`                      | Starts the real app with a throwaway profile and clicks through it (Playwright). Run on Windows.         |
+| `npm run lint` / `npm run format:check` | ESLint and Prettier.                                                                                     |
+| `npm run typecheck`                     | TypeScript check of the new modules (`logger.js`, `diagnostics.js`, `scripts/`, `test/`).                |
+| `npm run baseline`                      | Writes timing numbers to `baseline/` (module load cost, PowerShell spawn cost on Windows).               |
+| `npm run verify:binaries`               | Compares bundled binaries against `binaries.sha256.json`. Create or refresh the file with `-- --update`. |
+| `npm run sbom`                          | CycloneDX list of shipped npm packages.                                                                  |
+| `npm run check`                         | Lint, format check and unit tests together.                                                              |
 
 ## Logs and diagnostics
 

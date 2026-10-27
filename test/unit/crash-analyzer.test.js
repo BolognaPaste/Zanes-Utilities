@@ -14,10 +14,13 @@ test('parseDmp rejects data without the MDMP signature', () => {
 
 test('parseDmp reads exception, modules and system info', () => {
   const buf = dump.build({
-    mods: [{ name: 'C:\\Games\\Cool\\cool.exe', base: 0x7ff600000000n, size: 0x100000 }, { name: 'C:\\Windows\\System32\\nvwgf2umx.dll', base: 0x7ffa00000000n, size: 0x500000 }]
+    mods: [
+      { name: 'C:\\Games\\Cool\\cool.exe', base: 0x7ff600000000n, size: 0x100000 },
+      { name: 'C:\\Windows\\System32\\nvwgf2umx.dll', base: 0x7ffa00000000n, size: 0x500000 }
+    ]
   });
   const d = ctx.parseDmp(dump.toArrayBuffer(buf));
-  assert.equal(d.code, 0xC0000005);
+  assert.equal(d.code, 0xc0000005);
   assert.equal(d.tid, 4242);
   assert.equal(d.mods.length, 2);
   assert.equal(d.mods[1].n, 'C:\\Windows\\System32\\nvwgf2umx.dll');
@@ -28,7 +31,10 @@ test('parseDmp reads exception, modules and system info', () => {
 test('anDmp: access violation inside the NVIDIA driver is flagged as a graphics driver crash', () => {
   const buf = dump.build({
     addr: 0x7ffa00001000n,
-    mods: [{ name: 'D:\\Game\\game.exe', base: 0x7ff600000000n, size: 0x100000 }, { name: 'C:\\Windows\\System32\\nvwgf2umx.dll', base: 0x7ffa00000000n, size: 0x500000 }]
+    mods: [
+      { name: 'D:\\Game\\game.exe', base: 0x7ff600000000n, size: 0x100000 },
+      { name: 'C:\\Windows\\System32\\nvwgf2umx.dll', base: 0x7ffa00000000n, size: 0x500000 }
+    ]
   });
   const r = ctx.anDmp('crash.dmp', dump.toArrayBuffer(buf));
   assert.equal(r.findings[0].t, 'Access violation');
@@ -43,8 +49,13 @@ test('anDmp: access violation inside the NVIDIA driver is flagged as a graphics 
 
 test('anDmp: overlay modules that did not fault are listed as contributing', () => {
   const buf = dump.build({
-    code: 0xC0000374, addr: 0x7ff600000100n, params: [],
-    mods: [{ name: 'D:\\Game\\game.exe', base: 0x7ff600000000n, size: 0x100000 }, { name: 'C:\\x\\GameOverlayRenderer64.dll', base: 0x7ffb00000000n, size: 0x10000 }]
+    code: 0xc0000374,
+    addr: 0x7ff600000100n,
+    params: [],
+    mods: [
+      { name: 'D:\\Game\\game.exe', base: 0x7ff600000000n, size: 0x100000 },
+      { name: 'C:\\x\\GameOverlayRenderer64.dll', base: 0x7ffb00000000n, size: 0x10000 }
+    ]
   });
   const r = ctx.anDmp('crash.dmp', dump.toArrayBuffer(buf));
   assert.equal(r.findings[0].t, 'Heap corruption');
@@ -54,7 +65,7 @@ test('anDmp: overlay modules that did not fault are listed as contributing', () 
 });
 
 test('anDmp: unknown exception code gets a generic explanation, not a crash', () => {
-  const buf = dump.build({ code: 0xC0DEF00D, addr: 0x1n, params: [], mods: [] });
+  const buf = dump.build({ code: 0xc0def00d, addr: 0x1n, params: [], mods: [] });
   const r = ctx.anDmp('x.dmp', dump.toArrayBuffer(buf));
   assert.match(r.findings[0].t, /Unknown exception 0xC0DEF00D/);
 });
@@ -67,7 +78,9 @@ test('anDmp: a truncated dump reports an error message instead of throwing', () 
 });
 
 test('anText: log rules match with line numbers and the right severity', () => {
-  const log = ['Loading level', 'Warning: slow frame', 'EXCEPTION_ACCESS_VIOLATION reading 0x0', 'bad_alloc while loading textures'].join('\n');
+  const log = ['Loading level', 'Warning: slow frame', 'EXCEPTION_ACCESS_VIOLATION reading 0x0', 'bad_alloc while loading textures'].join(
+    '\n'
+  );
   const r = ctx.anText('game.log', log);
   const av = r.findings.find(f => f.t === 'Memory access violation');
   const oom = r.findings.find(f => f.t === 'Out of memory');

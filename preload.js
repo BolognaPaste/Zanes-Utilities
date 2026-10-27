@@ -174,7 +174,6 @@ contextBridge.exposeInMainWorld('mumble', {
   open: name => ipcRenderer.invoke('mumble:open', { name })
 });
 
-
 contextBridge.exposeInMainWorld('secureStore', {
   load: () => ipcRenderer.sendSync('store:load'),
   importAll: data => ipcRenderer.sendSync('store:import', { data }),
@@ -185,7 +184,10 @@ contextBridge.exposeInMainWorld('secureStore', {
 });
 
 let lockStart = false;
-try { const r = ipcRenderer.sendSync('lock:initial'); lockStart = !!(r && r.startLocked); } catch {}
+try {
+  const r = ipcRenderer.sendSync('lock:initial');
+  lockStart = !!(r && r.startLocked);
+} catch {}
 contextBridge.exposeInMainWorld('appLock', {
   startLocked: lockStart,
   state: () => ipcRenderer.invoke('lock:state'),

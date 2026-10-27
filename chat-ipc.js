@@ -15,45 +15,85 @@ function register(ipc, getWin, { app, dialog }) {
 
   const binFile = path.join(dir, 'tunnel.json');
   let picked = '';
-  try { const b = JSON.parse(secure.readTextSync(binFile)); if (b && looksRight(b.bin)) picked = b.bin; } catch {}
+  try {
+    const b = JSON.parse(secure.readTextSync(binFile));
+    if (b && looksRight(b.bin)) picked = b.bin;
+  } catch {}
   const unpacked = __dirname.replace(/app\.asar([\\/]|$)/, 'app.asar.unpacked$1');
-  const findBin = () => findBinary(picked, [path.join(unpacked, 'cloudflared'), path.join(process.resourcesPath || '', 'cloudflared'), path.join(app.getPath('userData'), 'cloudflared')]);
+  const findBin = () =>
+    findBinary(picked, [
+      path.join(unpacked, 'cloudflared'),
+      path.join(process.resourcesPath || '', 'cloudflared'),
+      path.join(app.getPath('userData'), 'cloudflared')
+    ]);
 
   hub.subscribe(HOST, ev => {
     const w = getWin();
     if (w && !appLock.isLocked()) w.webContents.send('chat:event', ev);
   });
 
-  const remote = new RemoteClient(ev => {
-    const w = getWin();
-    if (w && !appLock.isLocked()) w.webContents.send('chat:remoteEvent', ev);
-  }, path.join(dir, 'remote.json'));
+  const remote = new RemoteClient(
+    ev => {
+      const w = getWin();
+      if (w && !appLock.isLocked()) w.webContents.send('chat:remoteEvent', ev);
+    },
+    path.join(dir, 'remote.json')
+  );
 
   const str = v => (typeof v === 'string' ? v : '');
-  const h = (channel, fn) => ipc.handle(channel, async (_e, a) => {
-    try { return { ok: true, v: await fn(a && typeof a === 'object' ? a : {}) }; }
-    catch (err) { return { ok: false, error: err instanceof ChatError || (err && err.message) ? err.message : 'Something went wrong.' }; }
-  });
+  const h = (channel, fn) =>
+    ipc.handle(channel, async (_e, a) => {
+      try {
+        return { ok: true, v: await fn(a && typeof a === 'object' ? a : {}) };
+      } catch (err) {
+        return { ok: false, error: err instanceof ChatError || (err && err.message) ? err.message : 'Something went wrong.' };
+      }
+    });
   const settings = () => ({
-    serverName: hub.serverName, hostName: hub.hostName, hasPassword: hub.hasPassword(),
-    port: hub.net.port, lan: hub.net.lan, server: server.status(),
+    serverName: hub.serverName,
+    hostName: hub.hostName,
+    hasPassword: hub.hasPassword(),
+    port: hub.net.port,
+    lan: hub.net.lan,
+    server: server.status(),
     tunnel: Object.assign({ want: hub.net.tunnel, bin: findBin() }, tunnel.status())
   });
 
   h('chat:snapshot', () => hub.snapshot(HOST));
   h('chat:history', a => hub.history(str(a.ch), Number.isInteger(a.before) ? a.before : undefined));
   h('chat:send', a => ({ id: hub.send(HOST, str(a.ch), a.text) }));
-  h('chat:typing', a => { hub.typing(HOST, str(a.ch)); return true; });
-  h('chat:delete', a => { hub.remove(HOST, str(a.ch), a.id); return true; });
+  h('chat:typing', a => {
+    hub.typing(HOST, str(a.ch));
+    return true;
+  });
+  h('chat:delete', a => {
+    hub.remove(HOST, str(a.ch), a.id);
+    return true;
+  });
 
   h('chat:channelAdd', a => ({ id: hub.addChannel(a.name, a.topic) }));
-  h('chat:channelEdit', a => { hub.editChannel(str(a.id), { name: a.name, topic: a.topic }); return true; });
-  h('chat:channelDel', a => { hub.deleteChannel(str(a.id)); return true; });
-  h('chat:kick', a => { hub.kick(str(a.uid)); return true; });
+  h('chat:channelEdit', a => {
+    hub.editChannel(str(a.id), { name: a.name, topic: a.topic });
+    return true;
+  });
+  h('chat:channelDel', a => {
+    hub.deleteChannel(str(a.id));
+    return true;
+  });
+  h('chat:kick', a => {
+    hub.kick(str(a.uid));
+    return true;
+  });
 
   h('chat:remoteStatus', () => remote.status());
-  h('chat:remoteJoin', async a => { const r = await remote.join(str(a.address), str(a.name), str(a.password)); return Object.assign(remote.status(), r); });
-  h('chat:remoteLeave', () => { remote.leave(); return remote.status(); });
+  h('chat:remoteJoin', async a => {
+    const r = await remote.join(str(a.address), str(a.name), str(a.password));
+    return Object.assign(remote.status(), r);
+  });
+  h('chat:remoteLeave', () => {
+    remote.leave();
+    return remote.status();
+  });
   h('chat:remoteSnapshot', () => remote.snapshot());
   h('chat:remoteHistory', a => remote.history(str(a.ch), Number.isInteger(a.before) ? a.before : undefined));
   h('chat:remoteSend', a => remote.send(str(a.ch), a.text));
@@ -64,7 +104,8 @@ function register(ipc, getWin, { app, dialog }) {
   h('chat:setSettings', a => {
     if (a.serverName != null) hub.setServerName(a.serverName);
     if (a.hostName != null) hub.setHostName(a.hostName);
-    if (a.password === '' && tunnel.state !== 'off') throw new ChatError('Close the internet link before removing the password. The link is public, so it needs one.');
+    if (a.password === '' && tunnel.state !== 'off')
+      throw new ChatError('Close the internet link before removing the password. The link is public, so it needs one.');
     if (a.password != null) hub.setPassword(a.password);
     return settings();
   });
@@ -80,29 +121,53 @@ function register(ipc, getWin, { app, dialog }) {
     const port = Number(a.port);
     hub.setNet(port, !!a.lan, !!a.tunnel);
     await server.start(port, !!a.lan);
-    if (a.tunnel) { try { await openLink(); } catch (e) { if (tunnel.state !== 'error') tunnel.fail(e.message); } }
+    if (a.tunnel) {
+      try {
+        await openLink();
+      } catch (e) {
+        if (tunnel.state !== 'error') tunnel.fail(e.message);
+      }
+    }
     return settings();
   });
-  h('chat:serverStop', () => { tunnel.stop(); server.stop(); return settings(); });
+  h('chat:serverStop', () => {
+    tunnel.stop();
+    server.stop();
+    return settings();
+  });
   h('chat:tunnelStart', async () => {
-    try { await openLink(); } catch (e) { if (tunnel.state !== 'error') tunnel.fail(e.message); }
+    try {
+      await openLink();
+    } catch (e) {
+      if (tunnel.state !== 'error') tunnel.fail(e.message);
+    }
     return settings();
   });
-  h('chat:tunnelStop', () => { tunnel.stop(); return settings(); });
+  h('chat:tunnelStop', () => {
+    tunnel.stop();
+    return settings();
+  });
   h('chat:tunnelPick', async () => {
     const win = getWin();
     const r = await dialog.showOpenDialog(win, {
-      title: 'Choose cloudflared', properties: ['openFile'],
+      title: 'Choose cloudflared',
+      properties: ['openFile'],
       filters: process.platform === 'win32' ? [{ name: 'cloudflared', extensions: ['exe'] }] : []
     });
     if (r.canceled || !r.filePaths[0]) return settings();
-    if (!looksRight(r.filePaths[0])) throw new ChatError('That file does not look like cloudflared. Its name should start with "cloudflared".');
+    if (!looksRight(r.filePaths[0]))
+      throw new ChatError('That file does not look like cloudflared. Its name should start with "cloudflared".');
     picked = r.filePaths[0];
     secure.writeTextSync(binFile, JSON.stringify({ bin: picked }));
     return settings();
   });
 
-  app.on('before-quit', () => { remote.leave(); tunnel.stop(); server.stop(); hub.flush(); });
+  app.on('before-quit', () => {
+    remote.leave();
+    tunnel.stop();
+    server.stop();
+    hub.flush();
+  });
 }
 
 module.exports = { register };

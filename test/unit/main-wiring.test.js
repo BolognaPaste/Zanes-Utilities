@@ -8,7 +8,9 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
-function stubFn() { return new Proxy(function () {}, { get: (_t, k) => (k === 'then' ? undefined : stubFn()), apply: () => stubFn() }); }
+function stubFn() {
+  return new Proxy(function () {}, { get: (_t, k) => (k === 'then' ? undefined : stubFn()), apply: () => stubFn() });
+}
 
 function boot(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zu-main-'));
@@ -17,33 +19,95 @@ function boot(t) {
   const ready = [];
   const wins = [];
   let savePath = path.join(dir, 'diag.json');
-  const app = new Proxy({
-    requestSingleInstanceLock: () => true, quit() {}, on() {}, setAppUserModelId() {}, isPackaged: false,
-    getName: () => 'Zanes Utilities', getVersion: () => '1.0.0-test',
-    getPath: n => { const p = path.join(dir, n); fs.mkdirSync(p, { recursive: true }); return p; },
-    whenReady: () => ({ then: fn => { ready.push(fn); } })
-  }, { get: (t2, k) => (k in t2 ? t2[k] : stubFn()) });
+  const app = new Proxy(
+    {
+      requestSingleInstanceLock: () => true,
+      quit() {},
+      on() {},
+      setAppUserModelId() {},
+      isPackaged: false,
+      getName: () => 'Zanes Utilities',
+      getVersion: () => '1.0.0-test',
+      getPath: n => {
+        const p = path.join(dir, n);
+        fs.mkdirSync(p, { recursive: true });
+        return p;
+      },
+      whenReady: () => ({
+        then: fn => {
+          ready.push(fn);
+        }
+      })
+    },
+    { get: (t2, k) => (k in t2 ? t2[k] : stubFn()) }
+  );
   class BrowserWindow {
     constructor() {
-      this.webContents = { mainFrame: {}, setWindowOpenHandler() {}, on() {}, once() {}, getURL: () => 'file:///index.html', send() {}, reloadIgnoringCache() {} };
+      this.webContents = {
+        mainFrame: {},
+        setWindowOpenHandler() {},
+        on() {},
+        once() {},
+        getURL: () => 'file:///index.html',
+        send() {},
+        reloadIgnoringCache() {}
+      };
       wins.push(this);
     }
-    loadFile() {} isDestroyed() { return false; } once() {} isVisible() { return false; } show() {}
-    static fromWebContents() { return wins[0]; }
+    loadFile() {}
+    isDestroyed() {
+      return false;
+    }
+    once() {}
+    isVisible() {
+      return false;
+    }
+    show() {}
+    static fromWebContents() {
+      return wins[0];
+    }
   }
   const electron = {
-    app, BrowserWindow, Menu: { setApplicationMenu() {} }, WebContentsView: class {}, shell: { openExternal() {} }, net: {}, nativeImage: {}, webContents: {},
-    powerMonitor: { on() {} }, safeStorage: { isEncryptionAvailable: () => false },
+    app,
+    BrowserWindow,
+    Menu: { setApplicationMenu() {} },
+    WebContentsView: class {},
+    shell: { openExternal() {} },
+    net: {},
+    nativeImage: {},
+    webContents: {},
+    powerMonitor: { on() {} },
+    safeStorage: { isEncryptionAvailable: () => false },
     session: { defaultSession: { setPermissionRequestHandler() {}, setPermissionCheckHandler() {} }, fromPartition: () => ({}) },
-    ipcMain: { handle: (ch, fn) => { handlers[ch] = fn; }, on() {}, removeHandler() {} },
+    ipcMain: {
+      handle: (ch, fn) => {
+        handlers[ch] = fn;
+      },
+      on() {},
+      removeHandler() {}
+    },
     dialog: { showSaveDialog: async () => ({ canceled: false, filePath: savePath }), showOpenDialog: async () => ({ canceled: true }) }
   };
   const orig = Module._load;
-  Module._load = function (req, ...rest) { return req === 'electron' ? electron : orig.call(this, req, ...rest); };
+  Module._load = function (req, ...rest) {
+    return req === 'electron' ? electron : orig.call(this, req, ...rest);
+  };
   const mainPath = require.resolve('../../main.js');
   delete require.cache[mainPath];
-  try { require(mainPath); } finally { Module._load = orig; }
-  return { dir, handlers, ready, wins, setSavePath: p => { savePath = p; } };
+  try {
+    require(mainPath);
+  } finally {
+    Module._load = orig;
+  }
+  return {
+    dir,
+    handlers,
+    ready,
+    wins,
+    setSavePath: p => {
+      savePath = p;
+    }
+  };
 }
 
 test('main.js starts, logs startup, and exports a diagnostics bundle through the trusted IPC channel', async t => {
@@ -62,7 +126,11 @@ test('main.js starts, logs startup, and exports a diagnostics bundle through the
   const bundle = JSON.parse(fs.readFileSync(r.path, 'utf8'));
   assert.equal(bundle.schema, 1);
   assert.equal(bundle.app.version, '1.0.0-test');
-  assert.ok(typeof bundle.timingsMs.appReady === 'number' && typeof bundle.timingsMs.windowCreated === 'number' && typeof bundle.timingsMs.modulesRegistered === 'number');
+  assert.ok(
+    typeof bundle.timingsMs.appReady === 'number' &&
+      typeof bundle.timingsMs.windowCreated === 'number' &&
+      typeof bundle.timingsMs.modulesRegistered === 'number'
+  );
   assert.match(bundle.log, /Starting Zane's Utilities/);
 });
 

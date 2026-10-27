@@ -6,7 +6,7 @@ const path = require('path');
 const { isProtected, PASSES } = require('../../shred-ipc')._test;
 
 test('the current overwrite scheme is five passes (00, FF, random, AA, random)', () => {
-  assert.deepEqual(PASSES, [0x00, 0xFF, 'rand', 0xAA, 'rand']);
+  assert.deepEqual(PASSES, [0x00, 0xff, 'rand', 0xaa, 'rand']);
 });
 
 test('drive roots, the home folder and its parent are protected', () => {
@@ -26,7 +26,9 @@ test('Windows system and program folders are protected when the environment name
     process.env.ProgramFiles = path.resolve('/fake/Program Files');
     assert.equal(isProtected(path.join(process.env.SystemRoot, 'System32', 'cmd.exe')), true);
     assert.equal(isProtected(process.env.ProgramFiles), true);
-  } finally { process.env = keep; }
+  } finally {
+    process.env = keep;
+  }
 });
 
 test('a normal file inside a user work folder is not protected', () => {

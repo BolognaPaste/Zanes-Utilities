@@ -23,7 +23,13 @@ function redact(input, opts) {
   s = s.replace(/((?:password|passwd|passphrase|token|secret|key)["']?\s*[:=]\s*)(["']?)[^\s"',;}]+/gi, '$1$2<hidden>');
   return s;
 }
-function safeUser() { try { return os.userInfo().username; } catch { return ''; } }
+function safeUser() {
+  try {
+    return os.userInfo().username;
+  } catch {
+    return '';
+  }
+}
 
 function create(dir, opts) {
   opts = opts || {};
@@ -36,29 +42,49 @@ function create(dir, opts) {
     for (let i = KEEP - 1; i >= 1; i--) {
       const from = i === 1 ? file : file + '.' + (i - 1);
       const to = file + '.' + i;
-      try { fs.rmSync(to, { force: true }); fs.renameSync(from, to); } catch {}
+      try {
+        fs.rmSync(to, { force: true });
+        fs.renameSync(from, to);
+      } catch {}
     }
-    try { fs.rmSync(file, { force: true }); } catch {}
+    try {
+      fs.rmSync(file, { force: true });
+    } catch {}
     size = 0;
   };
 
   function write(level, msg, extra) {
     if (failed || LEVELS[level] < min) return;
     try {
-      if (size < 0) { fs.mkdirSync(dir, { recursive: true }); try { size = fs.statSync(file).size; } catch { size = 0; } }
+      if (size < 0) {
+        fs.mkdirSync(dir, { recursive: true });
+        try {
+          size = fs.statSync(file).size;
+        } catch {
+          size = 0;
+        }
+      }
       let line = new Date().toISOString() + ' ' + level.toUpperCase().padEnd(5) + ' ' + redact(msg, opts);
       if (extra !== undefined) {
         let t;
-        if (extra instanceof Error) t = (extra.stack || extra.message || String(extra));
+        if (extra instanceof Error) t = extra.stack || extra.message || String(extra);
         else if (typeof extra === 'string') t = extra;
-        else { try { t = JSON.stringify(extra); } catch { t = String(extra); } }
+        else {
+          try {
+            t = JSON.stringify(extra);
+          } catch {
+            t = String(extra);
+          }
+        }
         line += ' ' + redact(t, opts).replace(/\r?\n/g, ' | ').slice(0, 2000);
       }
       line = line.replace(/\r?\n/g, ' ') + '\n';
       if (size + line.length > MAX_BYTES) rotate();
       fs.appendFileSync(file, line);
       size += line.length;
-    } catch { failed = true; } // logging must never break the app
+    } catch {
+      failed = true;
+    } // logging must never break the app
   }
 
   return {
@@ -72,7 +98,9 @@ function create(dir, opts) {
       const parts = [];
       for (let i = KEEP - 1; i >= 0; i--) {
         const f = i === 0 ? file : file + '.' + i;
-        try { parts.push(fs.readFileSync(f, 'utf8')); } catch {}
+        try {
+          parts.push(fs.readFileSync(f, 'utf8'));
+        } catch {}
       }
       return parts.join('');
     }

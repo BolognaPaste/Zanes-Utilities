@@ -14,9 +14,13 @@ function build({ app, process: proc, log, timings, loadedModules, now }) {
     app: { name: app.getName(), version: app.getVersion(), packaged: !!app.isPackaged },
     runtime: { electron: proc.versions.electron, chrome: proc.versions.chrome, node: proc.versions.node },
     system: {
-      platform: proc.platform, arch: proc.arch, release: os.release(),
-      cpu: cpus[0] ? cpus[0].model.trim() : 'unknown', cores: cpus.length,
-      ramMB: mb(os.totalmem()), freeRamMB: mb(os.freemem())
+      platform: proc.platform,
+      arch: proc.arch,
+      release: os.release(),
+      cpu: cpus[0] ? cpus[0].model.trim() : 'unknown',
+      cores: cpus.length,
+      ramMB: mb(os.totalmem()),
+      freeRamMB: mb(os.freemem())
     },
     memoryMB: { rss: mb(mem.rss), heapUsed: mb(mem.heapUsed) },
     timingsMs: timings || {},
@@ -25,6 +29,8 @@ function build({ app, process: proc, log, timings, loadedModules, now }) {
   };
 }
 
-function toText(bundle) { return JSON.stringify(bundle, null, 2) + '\n'; }
+function toText(bundle) {
+  return JSON.stringify(bundle, null, 2) + '\n';
+}
 
 module.exports = { build, toText };

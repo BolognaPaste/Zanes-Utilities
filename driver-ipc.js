@@ -8,27 +8,55 @@ const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PS_ARGS = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass'];
 const MAX_INSTALL = 150;
 
-const readPS = name => fs.readFileSync(path.join(__dirname, 'ps', name), 'utf8')
-  .split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#')).join('\n');
+const readPS = name =>
+  fs
+    .readFileSync(path.join(__dirname, 'ps', name), 'utf8')
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('#'))
+    .join('\n');
 const psq = s => String(s).replace(/['\u2018\u2019\u201A\u201B]/g, m => m + m);
 const encode = s => Buffer.from(s, 'utf16le').toString('base64');
-const clean = s => String(s || '').replace(/#< CLIXML/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400);
+const clean = s =>
+  String(s || '')
+    .replace(/#< CLIXML/g, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 400);
 
 function runPS(script, timeoutMs) {
   return new Promise(resolve => {
     const p = spawn('powershell.exe', [...PS_ARGS, '-EncodedCommand', encode(script)], { windowsHide: true });
-    let out = '', err = '';
-    p.stdout.setEncoding('utf8'); p.stderr.setEncoding('utf8');
+    let out = '',
+      err = '';
+    p.stdout.setEncoding('utf8');
+    p.stderr.setEncoding('utf8');
     const timer = setTimeout(() => p.kill(), timeoutMs);
-    p.stdout.on('data', d => { out += d; });
-    p.stderr.on('data', d => { err += d; });
-    p.on('error', e => { clearTimeout(timer); resolve({ code: -1, out, err: e.message }); });
-    p.on('close', code => { clearTimeout(timer); resolve({ code, out, err }); });
+    p.stdout.on('data', d => {
+      out += d;
+    });
+    p.stderr.on('data', d => {
+      err += d;
+    });
+    p.on('error', e => {
+      clearTimeout(timer);
+      resolve({ code: -1, out, err: e.message });
+    });
+    p.on('close', code => {
+      clearTimeout(timer);
+      resolve({ code, out, err });
+    });
   });
 }
 
 function listResult(r) {
-  const line = r.out.replace(/\uFEFF/g, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).pop();
+  const line = r.out
+    .replace(/\uFEFF/g, '')
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean)
+    .pop();
   if (line) {
     try {
       let d = JSON.parse(line);
@@ -44,66 +72,104 @@ async function guard(fn) {
   if (process.platform !== 'win32') return { ok: false, error: 'Driver updates are only available on Windows.' };
   if (busy) return { ok: false, error: 'Another driver task is already running.' };
   busy = true;
-  try { return await fn(); }
-  catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
-  finally { busy = false; }
+  try {
+    return await fn();
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  } finally {
+    busy = false;
+  }
 }
 
 function register(ipcMain, getWin) {
-  const send = m => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send('drv:progress', m); };
+  const send = m => {
+    const w = getWin();
+    if (w && !w.isDestroyed()) w.webContents.send('drv:progress', m);
+  };
 
   ipcMain.handle('drv:scan', () => guard(async () => listResult(await runPS(readPS('scan.ps1'), 240000))));
   ipcMain.handle('drv:installed', () => guard(async () => listResult(await runPS(readPS('installed.ps1'), 90000))));
 
-  ipcMain.handle('drv:install', (_e, req) => guard(async () => {
-    const ids = Array.isArray(req && req.ids) ? [...new Set(req.ids.filter(x => typeof x === 'string' && GUID.test(x)))] : [];
-    if (!ids.length) return { ok: false, error: 'No drivers were selected.' };
-    if (ids.length > MAX_INSTALL) return { ok: false, error: 'Select at most ' + MAX_INSTALL + ' drivers at a time. Install those first, then scan again for the rest.' };
+  ipcMain.handle('drv:install', (_e, req) =>
+    guard(async () => {
+      const ids = Array.isArray(req && req.ids) ? [...new Set(req.ids.filter(x => typeof x === 'string' && GUID.test(x)))] : [];
+      if (!ids.length) return { ok: false, error: 'No drivers were selected.' };
+      if (ids.length > MAX_INSTALL)
+        return {
+          ok: false,
+          error: 'Select at most ' + MAX_INSTALL + ' drivers at a time. Install those first, then scan again for the rest.'
+        };
 
-    const log = path.join(os.tmpdir(), 'zu-drv-' + crypto.randomUUID() + '.log');
-    fs.writeFileSync(log, '');
-    const script = readPS('install.ps1')
-      .replace('__IDS__', () => ids.map(i => "'" + i + "'").join(','))
-      .replace('__LOG__', () => psq(log))
-      .replace('__RESTORE__', () => (req.restore ? '$true' : '$false'));
-    const launch = "Start-Process -FilePath powershell.exe -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList " +
-      "'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand','" + encode(script) + "'";
+      const log = path.join(os.tmpdir(), 'zu-drv-' + crypto.randomUUID() + '.log');
+      fs.writeFileSync(log, '');
+      const script = readPS('install.ps1')
+        .replace('__IDS__', () => ids.map(i => "'" + i + "'").join(','))
+        .replace('__LOG__', () => psq(log))
+        .replace('__RESTORE__', () => (req.restore ? '$true' : '$false'));
+      const launch =
+        'Start-Process -FilePath powershell.exe -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList ' +
+        "'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand','" +
+        encode(script) +
+        "'";
 
-    const items = [], warns = [];
-    let done = null, seen = 0;
-    const tick = () => {
-      let txt = '';
-      try { txt = fs.readFileSync(log, 'utf8'); } catch { return; }
-      const lines = txt.replace(/\uFEFF/g, '').split('\n');
-      lines.pop();
-      for (; seen < lines.length; seen++) {
-        let m; try { m = JSON.parse(lines[seen]); } catch { continue; }
-        if (m.t === 'item') items.push(m);
-        else if (m.t === 'warn') { warns.push(m.m); send(m); }
-        else if (m.t === 'done') done = m;
-        else send(m);
+      const items = [],
+        warns = [];
+      let done = null,
+        seen = 0;
+      const tick = () => {
+        let txt = '';
+        try {
+          txt = fs.readFileSync(log, 'utf8');
+        } catch {
+          return;
+        }
+        const lines = txt.replace(/\uFEFF/g, '').split('\n');
+        lines.pop();
+        for (; seen < lines.length; seen++) {
+          let m;
+          try {
+            m = JSON.parse(lines[seen]);
+          } catch {
+            continue;
+          }
+          if (m.t === 'item') items.push(m);
+          else if (m.t === 'warn') {
+            warns.push(m.m);
+            send(m);
+          } else if (m.t === 'done') done = m;
+          else send(m);
+        }
+      };
+      const timer = setInterval(tick, 400);
+
+      const r = await new Promise(resolve => {
+        const p = spawn('powershell.exe', [...PS_ARGS, '-Command', launch], { windowsHide: true });
+        let err = '';
+        p.stderr.setEncoding('utf8');
+        p.stderr.on('data', d => {
+          err += d;
+        });
+        p.on('error', e => resolve({ code: -1, err: e.message }));
+        p.on('close', code => resolve({ code, err }));
+      });
+      clearInterval(timer);
+      tick();
+      try {
+        fs.unlinkSync(log);
+      } catch {}
+
+      if (!done) {
+        return {
+          ok: false,
+          error:
+            seen === 0
+              ? 'Nothing was installed. Administrator permission was not granted, or the helper could not start.'
+              : clean(r.err) || 'The installer stopped unexpectedly.'
+        };
       }
-    };
-    const timer = setInterval(tick, 400);
-
-    const r = await new Promise(resolve => {
-      const p = spawn('powershell.exe', [...PS_ARGS, '-Command', launch], { windowsHide: true });
-      let err = '';
-      p.stderr.setEncoding('utf8');
-      p.stderr.on('data', d => { err += d; });
-      p.on('error', e => resolve({ code: -1, err: e.message }));
-      p.on('close', code => resolve({ code, err }));
-    });
-    clearInterval(timer); tick();
-    try { fs.unlinkSync(log); } catch {}
-
-    if (!done) {
-      return { ok: false, error: seen === 0
-        ? 'Nothing was installed. Administrator permission was not granted, or the helper could not start.'
-        : (clean(r.err) || 'The installer stopped unexpectedly.') };
-    }
-    return { ok: true, data: { success: !!done.ok, reboot: !!done.reboot, message: done.m || '', items, warns } };
-  }));
+      return { ok: true, data: { success: !!done.ok, reboot: !!done.reboot, message: done.m || '', items, warns } };
+    })
+  );
 }
 
 module.exports = { register, runPS, readPS, listResult, psq };

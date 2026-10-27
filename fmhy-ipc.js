@@ -3,13 +3,26 @@ const HOME = 'https://fmhy.net/';
 const adblock = require('./adblock');
 
 function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWindow, app }) {
-  let view = null, attached = false;
+  let view = null,
+    attached = false;
   const popups = new Map();
   let blockPref = true;
 
-  const inside = u => { try { const x = new URL(u); return x.protocol === 'https:' && FMHY_HOST.test(x.hostname); } catch { return false; } };
-  const out = u => { if (/^https?:/i.test(u)) shell.openExternal(u); };
-  const pop = u => { const n = web(u); if (n) openPopup(n, 'link', blockPref).catch(() => {}); };
+  const inside = u => {
+    try {
+      const x = new URL(u);
+      return x.protocol === 'https:' && FMHY_HOST.test(x.hostname);
+    } catch {
+      return false;
+    }
+  };
+  const out = u => {
+    if (/^https?:/i.test(u)) shell.openExternal(u);
+  };
+  const pop = u => {
+    const n = web(u);
+    if (n) openPopup(n, 'link', blockPref).catch(() => {});
+  };
   const rect = b => {
     const n = k => Math.max(0, Math.round(Number(b && b[k]) || 0));
     return { x: n('x'), y: n('y'), width: n('width'), height: n('height') };
@@ -22,11 +35,27 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
       ses.setPermissionRequestHandler((wc, perm, cb) => cb(perm === 'fullscreen'));
       ses.setPermissionCheckHandler((wc, perm) => perm === 'fullscreen');
     }
-    view = new WebContentsView({ webPreferences: { partition: 'persist:fmhy', contextIsolation: true, nodeIntegration: false, sandbox: true } });
+    view = new WebContentsView({
+      webPreferences: { partition: 'persist:fmhy', contextIsolation: true, nodeIntegration: false, sandbox: true }
+    });
     const wc = view.webContents;
-    wc.setWindowOpenHandler(({ url }) => { if (inside(url)) wc.loadURL(url); else pop(url); return { action: 'deny' }; });
-    wc.on('will-navigate', (e, url) => { if (!inside(url)) { e.preventDefault(); pop(url); } });
-    wc.on('will-redirect', (e, url) => { if (!inside(url)) { e.preventDefault(); pop(url); } });
+    wc.setWindowOpenHandler(({ url }) => {
+      if (inside(url)) wc.loadURL(url);
+      else pop(url);
+      return { action: 'deny' };
+    });
+    wc.on('will-navigate', (e, url) => {
+      if (!inside(url)) {
+        e.preventDefault();
+        pop(url);
+      }
+    });
+    wc.on('will-redirect', (e, url) => {
+      if (!inside(url)) {
+        e.preventDefault();
+        pop(url);
+      }
+    });
     wc.loadURL(HOME);
   }
 
@@ -35,12 +64,18 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     if (!win || win.isDestroyed()) return { ok: false, error: 'The app window is not available.' };
     if (b && typeof b.block === 'boolean') blockPref = b.block;
     if (!view) make();
-    if (!attached) { win.contentView.addChildView(view); attached = true; }
+    if (!attached) {
+      win.contentView.addChildView(view);
+      attached = true;
+    }
     view.setBounds(rect(b));
     return { ok: true };
   });
 
-  ipcMain.handle('fmhy:bounds', (_e, b) => { if (view && attached) view.setBounds(rect(b)); return true; });
+  ipcMain.handle('fmhy:bounds', (_e, b) => {
+    if (view && attached) view.setBounds(rect(b));
+    return true;
+  });
 
   ipcMain.handle('fmhy:hide', () => {
     const win = getWin();
@@ -49,28 +84,60 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     return true;
   });
 
-  const web = u => { try { const x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:' ? x.href : null; } catch { return null; } };
+  const web = u => {
+    try {
+      const x = new URL(u);
+      return x.protocol === 'https:' || x.protocol === 'http:' ? x.href : null;
+    } catch {
+      return null;
+    }
+  };
 
   const KEEP_MS = 365 * 24 * 3600 * 1000;
-  let flushTimer = 0, popSes = null, blocker = null;
-  const flush = () => { if (!popSes) return; try { popSes.cookies.flushStore().catch(() => {}); popSes.flushStorageData(); } catch {} };
-  const flushSoon = () => { clearTimeout(flushTimer); flushTimer = setTimeout(flush, 1000); };
+  let flushTimer = 0,
+    popSes = null,
+    blocker = null;
+  const flush = () => {
+    if (!popSes) return;
+    try {
+      popSes.cookies.flushStore().catch(() => {});
+      popSes.flushStorageData();
+    } catch {}
+  };
+  const flushSoon = () => {
+    clearTimeout(flushTimer);
+    flushTimer = setTimeout(flush, 1000);
+  };
 
   function popupSession() {
     if (popSes) return popSes;
-    const ses = popSes = session.fromPartition('persist:fmhy-popup');
-    blocker = adblock.create(app, ses, () => { const w = getWin(); if (w) w.webContents.send('fmhy:ad'); });
+    const ses = (popSes = session.fromPartition('persist:fmhy-popup'));
+    blocker = adblock.create(app, ses, () => {
+      const w = getWin();
+      if (w) w.webContents.send('fmhy:ad');
+    });
     ses.setPermissionRequestHandler((wc, perm, cb) => cb(perm === 'fullscreen'));
     ses.setPermissionCheckHandler((wc, perm) => perm === 'fullscreen');
     ses.cookies.on('changed', (_e, c, cause, removed) => {
-      if (removed) { flushSoon(); return; }
-      if (!c.session) { flushSoon(); return; }
+      if (removed) {
+        flushSoon();
+        return;
+      }
+      if (!c.session) {
+        flushSoon();
+        return;
+      }
       const host = String(c.domain || '').replace(/^\./, '');
       if (!host) return;
       const jar = {
         url: (c.secure ? 'https://' : 'http://') + host + (c.path || '/'),
-        name: c.name, value: c.value, path: c.path || '/', secure: c.secure, httpOnly: c.httpOnly,
-        sameSite: c.sameSite, expirationDate: (Date.now() + KEEP_MS) / 1000
+        name: c.name,
+        value: c.value,
+        path: c.path || '/',
+        secure: c.secure,
+        httpOnly: c.httpOnly,
+        sameSite: c.sameSite,
+        expirationDate: (Date.now() + KEEP_MS) / 1000
       };
       if (!c.hostOnly) jar.domain = c.domain;
       ses.cookies.set(jar).then(flushSoon, () => {});
@@ -79,11 +146,27 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     return ses;
   }
 
-  ipcMain.handle('fmhy:warm', () => { popupSession(); blocker.warm(); return true; });
+  ipcMain.handle('fmhy:warm', () => {
+    popupSession();
+    blocker.warm();
+    return true;
+  });
 
-  ipcMain.handle('fmhy:adstatus', async () => { popupSession(); return blocker.status(); });
-  ipcMain.handle('fmhy:adset', async (_e, on) => { popupSession(); blockPref = !!on; await blocker.set(!!on, 1); return blocker.status(); });
-  ipcMain.handle('fmhy:adrefresh', async () => { popupSession(); await blocker.refresh(); return blocker.status(); });
+  ipcMain.handle('fmhy:adstatus', async () => {
+    popupSession();
+    return blocker.status();
+  });
+  ipcMain.handle('fmhy:adset', async (_e, on) => {
+    popupSession();
+    blockPref = !!on;
+    await blocker.set(!!on, 1);
+    return blocker.status();
+  });
+  ipcMain.handle('fmhy:adrefresh', async () => {
+    popupSession();
+    await blocker.refresh();
+    return blocker.status();
+  });
 
   async function openPopup(rawUrl, key, block) {
     const win = getWin();
@@ -96,9 +179,12 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     let note = '';
     try {
       const r = await blocker.set(!!block);
-      if (r.on && !r.ready) note = 'The ad blocker is still loading its filter lists, so this page opened without it. It switches on by itself in a moment.';
+      if (r.on && !r.ready)
+        note = 'The ad blocker is still loading its filter lists, so this page opened without it. It switches on by itself in a moment.';
       else if (r.on && r.error) note = 'The ad blocker could not load its filter lists (' + r.error + '), so this page opened without it.';
-    } catch (err) { note = 'The ad blocker could not start, so this page opened without it.'; }
+    } catch (err) {
+      note = 'The ad blocker could not start, so this page opened without it.';
+    }
     if (!win || win.isDestroyed()) return { ok: false, error: 'The app window is not available.' };
 
     let p = key !== null ? popups.get(key) : null;
@@ -111,27 +197,63 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
 
     const ses = popupSession();
     const b = win.getBounds();
-    const w = Math.max(640, Math.round(b.width * 0.85)), h = Math.max(480, Math.round(b.height * 0.85));
+    const w = Math.max(640, Math.round(b.width * 0.85)),
+      h = Math.max(480, Math.round(b.height * 0.85));
     p = new BrowserWindow({
-      parent: win, width: w, height: h,
-      x: b.x + Math.round((b.width - w) / 2), y: b.y + Math.round((b.height - h) / 2),
-      minWidth: 480, minHeight: 360, autoHideMenuBar: true, backgroundColor: '#0f161c',
+      parent: win,
+      width: w,
+      height: h,
+      x: b.x + Math.round((b.width - w) / 2),
+      y: b.y + Math.round((b.height - h) / 2),
+      minWidth: 480,
+      minHeight: 360,
+      autoHideMenuBar: true,
+      backgroundColor: '#0f161c',
       icon: require('path').join(__dirname, 'build', 'icon.png'),
       webPreferences: { partition: 'persist:fmhy-popup', contextIsolation: true, nodeIntegration: false, sandbox: true }
     });
     p.setMenuBarVisibility(false);
     const wc = p.webContents;
-    wc.setWindowOpenHandler(({ url: u }) => { const n = web(u); if (n) wc.loadURL(n).catch(() => {}); return { action: 'deny' }; });
-    const only = (e, u) => { if (!web(u)) e.preventDefault(); };
+    wc.setWindowOpenHandler(({ url: u }) => {
+      const n = web(u);
+      if (n) wc.loadURL(n).catch(() => {});
+      return { action: 'deny' };
+    });
+    const only = (e, u) => {
+      if (!web(u)) e.preventDefault();
+    };
     wc.on('will-navigate', only);
     wc.on('will-redirect', only);
-    const go = d => { const h = wc.navigationHistory; if (d < 0 ? h.canGoBack() : h.canGoForward()) { d < 0 ? h.goBack() : h.goForward(); return true; } return false; };
+    const go = d => {
+      const h = wc.navigationHistory;
+      if (d < 0 ? h.canGoBack() : h.canGoForward()) {
+        d < 0 ? h.goBack() : h.goForward();
+        return true;
+      }
+      return false;
+    };
     wc.on('before-input-event', (e, i) => {
-      if (i.type === 'keyDown' && i.alt && !i.control && !i.shift && (i.key === 'ArrowLeft' || i.key === 'ArrowRight') && go(i.key === 'ArrowLeft' ? -1 : 1)) e.preventDefault();
+      if (
+        i.type === 'keyDown' &&
+        i.alt &&
+        !i.control &&
+        !i.shift &&
+        (i.key === 'ArrowLeft' || i.key === 'ArrowRight') &&
+        go(i.key === 'ArrowLeft' ? -1 : 1)
+      )
+        e.preventDefault();
     });
-    p.on('app-command', (_e, c) => { if (c === 'browser-backward') go(-1); else if (c === 'browser-forward') go(1); });
+    p.on('app-command', (_e, c) => {
+      if (c === 'browser-backward') go(-1);
+      else if (c === 'browser-forward') go(1);
+    });
     p.on('close', flush);
-    if (key !== null) { popups.set(key, p); p.on('closed', () => { if (popups.get(key) === p) popups.delete(key); }); }
+    if (key !== null) {
+      popups.set(key, p);
+      p.on('closed', () => {
+        if (popups.get(key) === p) popups.delete(key);
+      });
+    }
     p.loadURL(url).catch(() => {});
     return { ok: true, note };
   }

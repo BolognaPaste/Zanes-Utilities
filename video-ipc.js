@@ -7,7 +7,8 @@ const { spawn } = require('child_process');
 const VIDEO = /\.(mp4|m4v|mkv|webm|mov|avi|wmv|flv|mpg|mpeg|ts|m2ts|ogv|3gp)$/i;
 const IMAGE = /\.(jpe?g|png|webp)$/i;
 const SKIP = /^(\$recycle\.bin|system volume information|node_modules)$/i;
-const MAX_FILES = 5000, MAX_DEPTH = 8;
+const MAX_FILES = 5000,
+  MAX_DEPTH = 8;
 
 const EXT = ['jpg', 'jpeg', 'png', 'webp'];
 const ART = {
@@ -25,7 +26,10 @@ function findArt(images, base, single) {
     search: for (const n of names) {
       for (const x of EXT) {
         const hit = images.get(n.toLowerCase() + '.' + x);
-        if (hit) { out[kind] = hit; break search; }
+        if (hit) {
+          out[kind] = hit;
+          break search;
+        }
       }
     }
   }
@@ -33,27 +37,42 @@ function findArt(images, base, single) {
 }
 
 function findFfmpeg(app) {
-  const tried = [], cands = [];
+  const tried = [],
+    cands = [];
   const unpack = p => p.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
-  try { const p = require('ffmpeg-static'); if (p) cands.push(unpack(p)); else tried.push('ffmpeg-static (no binary for this platform)'); }
-  catch { tried.push('ffmpeg-static package (not installed: run npm install)'); }
+  try {
+    const p = require('ffmpeg-static');
+    if (p) cands.push(unpack(p));
+    else tried.push('ffmpeg-static (no binary for this platform)');
+  } catch {
+    tried.push('ffmpeg-static package (not installed: run npm install)');
+  }
   cands.push(unpack(path.join(__dirname, 'node_modules', 'ffmpeg-static', 'ffmpeg.exe')));
   if (process.resourcesPath) cands.push(path.join(process.resourcesPath, 'ffmpeg.exe'));
-  try { cands.push(path.join(app.getPath('userData'), 'ffmpeg.exe')); } catch {}
+  try {
+    cands.push(path.join(app.getPath('userData'), 'ffmpeg.exe'));
+  } catch {}
   for (const c of cands) {
     if (fs.existsSync(c)) return { file: c };
     tried.push(c);
   }
   return { tried };
 }
-const toSec = t => { const m = /(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(t || ''); return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : 0; };
+const toSec = t => {
+  const m = /(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(t || '');
+  return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : 0;
+};
 
 async function walk(root) {
   const files = [];
   let truncated = false;
   async function rec(dir, depth) {
     let ents;
-    try { ents = await fsp.readdir(dir, { withFileTypes: true }); } catch { return; }
+    try {
+      ents = await fsp.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
     const images = new Map();
     let videos = 0;
     for (const e of ents) {
@@ -62,13 +81,21 @@ async function walk(root) {
       else if (VIDEO.test(e.name)) videos++;
     }
     for (const e of ents) {
-      if (files.length >= MAX_FILES) { truncated = true; return; }
+      if (files.length >= MAX_FILES) {
+        truncated = true;
+        return;
+      }
       const p = path.join(dir, e.name);
       if (e.isDirectory()) {
         if (depth < MAX_DEPTH && e.name[0] !== '.' && !SKIP.test(e.name)) await rec(p, depth + 1);
       } else if (e.isFile() && VIDEO.test(e.name)) {
-        let size = 0, mtime = 0;
-        try { const st = await fsp.stat(p); size = st.size; mtime = st.mtimeMs; } catch {}
+        let size = 0,
+          mtime = 0;
+        try {
+          const st = await fsp.stat(p);
+          size = st.size;
+          mtime = st.mtimeMs;
+        } catch {}
         const item = { path: p, rel: path.relative(root, p), size, mtime };
         const found = findArt(images, e.name.replace(/\.[^.]+$/, ''), videos === 1);
         const kinds = Object.keys(found);
@@ -89,8 +116,12 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
   const failed = new Set();
   const cacheDir = () => path.join(app.getPath('userData'), 'video-thumbs');
   const fixDir = () => path.join(app.getPath('userData'), 'video-audio-fixed');
-  const send = m => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send('vid:progress', m); };
-  let fixProc = null, fixCancelled = false;
+  const send = m => {
+    const w = getWin();
+    if (w && !w.isDestroyed()) w.webContents.send('vid:progress', m);
+  };
+  let fixProc = null,
+    fixCancelled = false;
 
   const cleanOld = async () => {
     try {
@@ -112,14 +143,17 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
     if (typeof dir !== 'string' || !path.isAbsolute(dir)) return { ok: false, error: 'That is not a folder path.' };
     try {
       if (!(await fsp.stat(dir)).isDirectory()) return { ok: false, error: 'That path is not a folder.' };
-    } catch { return { ok: false, error: 'The folder could not be found. It may have been moved, renamed or disconnected.' }; }
+    } catch {
+      return { ok: false, error: 'The folder could not be found. It may have been moved, renamed or disconnected.' };
+    }
     try {
       const data = await walk(dir);
       known = new Set(data.files.map(f => f.path));
       failed.clear();
       return { ok: true, data };
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
     }
-    catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
   });
 
   ipcMain.handle('vid:thumb', async (_e, file) => {
@@ -128,7 +162,10 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
     try {
       if (!nativeImage || typeof nativeImage.createThumbnailFromPath !== 'function') throw new Error('Thumbnails are not supported here.');
       const st = await fsp.stat(file);
-      const key = crypto.createHash('sha1').update(file.toLowerCase() + '|' + st.size + '|' + Math.round(st.mtimeMs)).digest('hex');
+      const key = crypto
+        .createHash('sha1')
+        .update(file.toLowerCase() + '|' + st.size + '|' + Math.round(st.mtimeMs))
+        .digest('hex');
       const out = path.join(cacheDir(), key + '.jpg');
       if (fs.existsSync(out)) return { ok: true, data: out };
       const img = await nativeImage.createThumbnailFromPath(file, { width: 480, height: 270 });
@@ -145,37 +182,82 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
   ipcMain.handle('vid:fixaudio', async (_e, file) => {
     if (typeof file !== 'string' || !known.has(file)) return { ok: false, error: 'That file was not in the last scan.' };
     if (fixProc) return { ok: false, error: 'Another audio conversion is already running.' };
-    const found = findFfmpeg(app), bin = found.file;
+    const found = findFfmpeg(app),
+      bin = found.file;
     if (!bin) return { ok: false, error: 'ffmpeg was not found. Looked in: ' + found.tried.join('; ') };
     let out, part;
     try {
       const st = await fsp.stat(file);
-      const key = crypto.createHash('sha1').update(file.toLowerCase() + '|' + st.size + '|' + Math.round(st.mtimeMs) + '|aac1').digest('hex');
+      const key = crypto
+        .createHash('sha1')
+        .update(file.toLowerCase() + '|' + st.size + '|' + Math.round(st.mtimeMs) + '|aac1')
+        .digest('hex');
       out = path.join(fixDir(), key + '.mp4');
       part = path.join(fixDir(), key + '.part');
-      if (fs.existsSync(out)) { const now = new Date(); await fsp.utimes(out, now, now).catch(() => {}); return { ok: true, data: out }; }
+      if (fs.existsSync(out)) {
+        const now = new Date();
+        await fsp.utimes(out, now, now).catch(() => {});
+        return { ok: true, data: out };
+      }
       await fsp.mkdir(fixDir(), { recursive: true });
-    } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
+    }
 
-    const args = ['-y', '-hide_banner', '-nostdin', '-loglevel', 'info', '-i', file,
-      '-map', '0:v:0', '-map', '0:a:0?', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ac', '2',
-      '-sn', '-dn', '-movflags', '+faststart', '-progress', 'pipe:1', '-nostats', '-f', 'mp4', part];
+    const args = [
+      '-y',
+      '-hide_banner',
+      '-nostdin',
+      '-loglevel',
+      'info',
+      '-i',
+      file,
+      '-map',
+      '0:v:0',
+      '-map',
+      '0:a:0?',
+      '-c:v',
+      'copy',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '192k',
+      '-ac',
+      '2',
+      '-sn',
+      '-dn',
+      '-movflags',
+      '+faststart',
+      '-progress',
+      'pipe:1',
+      '-nostats',
+      '-f',
+      'mp4',
+      part
+    ];
     fixCancelled = false;
     const r = await new Promise(resolve => {
       const p = spawn(bin, args, { windowsHide: true });
       fixProc = p;
-      let dur = 0, errTail = '', buf = '';
-      p.stderr.setEncoding('utf8'); p.stdout.setEncoding('utf8');
+      let dur = 0,
+        errTail = '',
+        buf = '';
+      p.stderr.setEncoding('utf8');
+      p.stdout.setEncoding('utf8');
       p.stderr.on('data', d => {
         errTail = (errTail + d).slice(-2000);
-        if (!dur) { const m = /Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)/.exec(errTail); if (m) dur = toSec(m[1]); }
+        if (!dur) {
+          const m = /Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)/.exec(errTail);
+          if (m) dur = toSec(m[1]);
+        }
       });
       p.stdout.on('data', d => {
         buf += d;
-        const lines = buf.split(/\r?\n/); buf = lines.pop();
+        const lines = buf.split(/\r?\n/);
+        buf = lines.pop();
         for (const l of lines) {
           const m = /^out_time_(?:us|ms)=(\d+)/.exec(l);
-          if (m && dur) send({ t: 'fix', pct: Math.max(0, Math.min(99, Math.round(+m[1] / 1e6 / dur * 100))) });
+          if (m && dur) send({ t: 'fix', pct: Math.max(0, Math.min(99, Math.round((+m[1] / 1e6 / dur) * 100))) });
         }
       });
       p.on('error', e => resolve({ code: -1, err: e.message }));
@@ -183,16 +265,31 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
     });
     fixProc = null;
     if (r.code === 0 && !fixCancelled) {
-      try { await fsp.rename(part, out); return { ok: true, data: out }; }
-      catch (e) { r.err = String((e && e.message) || e); }
+      try {
+        await fsp.rename(part, out);
+        return { ok: true, data: out };
+      } catch (e) {
+        r.err = String((e && e.message) || e);
+      }
     }
-    try { await fsp.unlink(part); } catch {}
+    try {
+      await fsp.unlink(part);
+    } catch {}
     if (fixCancelled) return { ok: false, cancelled: true, error: 'Conversion cancelled.' };
-    const last = String(r.err || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).pop() || '';
+    const last =
+      String(r.err || '')
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean)
+        .pop() || '';
     return { ok: false, error: 'The audio could not be converted' + (last ? ': ' + last.slice(0, 200) : '.') };
   });
 
-  ipcMain.handle('vid:fixcancel', () => { fixCancelled = true; if (fixProc) fixProc.kill(); return true; });
+  ipcMain.handle('vid:fixcancel', () => {
+    fixCancelled = true;
+    if (fixProc) fixProc.kill();
+    return true;
+  });
 
   ipcMain.handle('vid:open', async (_e, file) => {
     if (typeof file !== 'string' || !known.has(file) || !VIDEO.test(file) || !fs.existsSync(file)) return 'That file cannot be opened.';

@@ -9,10 +9,14 @@ const HOSTS = new Set(['www.nvidia.com', 'gfwsl.geforce.com', 'www.amd.com', 'ww
 const TTL = 30 * 60 * 1000;
 
 function register(ipcMain, getWin, { app, net, shell }) {
-  const send = m => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send('vnd:progress', m); };
+  const send = m => {
+    const w = getWin();
+    if (w && !w.isDestroyed()) w.webContents.send('vnd:progress', m);
+  };
   const cache = new Map();
   const verified = new Set();
-  let checking = false, downloading = false;
+  let checking = false,
+    downloading = false;
 
   async function get(url) {
     const u = new URL(url);
@@ -23,7 +27,11 @@ function register(ipcMain, getWin, { app, net, shell }) {
     const timer = setTimeout(() => ac.abort(), 15000);
     try {
       const res = await net.fetch(url, { headers: { 'User-Agent': UA, Accept: '*/*' }, signal: ac.signal });
-      if (!res.ok) { const e = new Error('HTTP ' + res.status); e.status = res.status; throw e; }
+      if (!res.ok) {
+        const e = new Error('HTTP ' + res.status);
+        e.status = res.status;
+        throw e;
+      }
       const v = await res.text();
       if (v.length > 3e6) throw new Error('Response too large');
       cache.set(url, { t: Date.now(), v });
@@ -31,14 +39,26 @@ function register(ipcMain, getWin, { app, net, shell }) {
     } catch (e) {
       if (e.name === 'AbortError') throw new Error('timed out');
       throw e;
-    } finally { clearTimeout(timer); }
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async function sigCheck(file) {
-    const r = await runPS(readPS('sigcheck.ps1').replace('__FILE__', () => psq(file)), 180000);
-    const line = r.out.replace(/\uFEFF/g, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).pop();
+    const r = await runPS(
+      readPS('sigcheck.ps1').replace('__FILE__', () => psq(file)),
+      180000
+    );
+    const line = r.out
+      .replace(/\uFEFF/g, '')
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(Boolean)
+      .pop();
     let j = {};
-    try { j = JSON.parse(line); } catch {}
+    try {
+      j = JSON.parse(line);
+    } catch {}
     return { ok: j.status === 'Valid' && j.cn === 'NVIDIA Corporation', status: j.status || 'Unknown', subject: j.subject || '' };
   }
 
@@ -49,12 +69,21 @@ function register(ipcMain, getWin, { app, net, shell }) {
     try {
       const g = listResult(await runPS(readPS('gpus.ps1'), 60000));
       if (!g.ok) return g;
-      const build = Number((os.release().split('.')[2]) || 0);
+      const build = Number(os.release().split('.')[2] || 0);
       const data = await checkAll(g.data, { get, build });
-      const noDevices = why => ({ vendor: 'This PC', category: 'Other', gpu: 'Other drivers', installed: '', status: 'unknown', page: '', source: 'Windows', note: 'Could not list the devices in this PC: ' + why });
+      const noDevices = why => ({
+        vendor: 'This PC',
+        category: 'Other',
+        gpu: 'Other drivers',
+        installed: '',
+        status: 'unknown',
+        page: '',
+        source: 'Windows',
+        note: 'Could not list the devices in this PC: ' + why
+      });
       try {
         const dv = listResult(await runPS(readPS('devices.ps1'), 90000));
-        if (dv.ok) data.push(...await checkComponents(dv.data, { get, build }));
+        if (dv.ok) data.push(...(await checkComponents(dv.data, { get, build })));
         else data.push(noDevices(dv.error));
       } catch (e) {
         data.push(noDevices(String((e && e.message) || e)));
@@ -62,7 +91,9 @@ function register(ipcMain, getWin, { app, net, shell }) {
       return { ok: true, data };
     } catch (e) {
       return { ok: false, error: String((e && e.message) || e) };
-    } finally { checking = false; }
+    } finally {
+      checking = false;
+    }
   });
 
   ipcMain.handle('vnd:download', async (_e, req) => {
@@ -79,21 +110,31 @@ function register(ipcMain, getWin, { app, net, shell }) {
       send({ t: 'verify' });
       const sig = await sigCheck(dest);
       if (!sig.ok) {
-        try { fs.unlinkSync(dest); } catch {}
-        return { ok: false, error: 'The file was deleted because its digital signature is not a valid NVIDIA signature (' + sig.status + ').' };
+        try {
+          fs.unlinkSync(dest);
+        } catch {}
+        return {
+          ok: false,
+          error: 'The file was deleted because its digital signature is not a valid NVIDIA signature (' + sig.status + ').'
+        };
       }
       verified.add(dest);
       return { ok: true, data: { file: dest, name, subject: sig.subject } };
     } catch (e) {
       return { ok: false, error: String((e && e.message) || e) };
-    } finally { downloading = false; }
+    } finally {
+      downloading = false;
+    }
   });
 
   ipcMain.handle('vnd:run', async (_e, req) => {
     const file = String((req && req.file) || '');
     if (!verified.has(file) || !fs.existsSync(file)) return { ok: false, error: 'That installer is not available. Download it again.' };
     const sig = await sigCheck(file);
-    if (!sig.ok) { verified.delete(file); return { ok: false, error: 'The installer changed since it was verified, so it was not started.' }; }
+    if (!sig.ok) {
+      verified.delete(file);
+      return { ok: false, error: 'The installer changed since it was verified, so it was not started.' };
+    }
     const err = await shell.openPath(file);
     return err ? { ok: false, error: err } : { ok: true };
   });

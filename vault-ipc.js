@@ -7,26 +7,35 @@ const scrypt = promisify(crypto.scrypt);
 
 const MAGIC = Buffer.from('ZVAULT');
 const VERSION = 1;
-const LOGN = 18, R = 8, P = 1;
-const HDR = 128, AAD_LEN = 54, PTR_AT = 112;
+const LOGN = 18,
+  R = 8,
+  P = 1;
+const HDR = 128,
+  AAD_LEN = 54,
+  PTR_AT = 112;
 const CH = 1024 * 1024;
 const OVER = 28;
 const MAX_INDEX = 64 * 1024 * 1024;
 const IDLE_MS = 10 * 60 * 1000;
 const IDX_AAD = Buffer.from('zvault index v1');
 
-const COMMON = /^(?:password|passw0rd|qwerty|qwertyuiop|letmein|welcome|iloveyou|admin|administrator|abc123|monkey|dragon|football|baseball|master|shadow|login|princess|sunshine|trustno1|zaq12wsx|asdfgh|asdfghjkl|zxcvbn|zxcvbnm|changeme|secret|vault|zvault)+[0-9!@#$%^&*._-]{0,8}$/;
+const COMMON =
+  /^(?:password|passw0rd|qwerty|qwertyuiop|letmein|welcome|iloveyou|admin|administrator|abc123|monkey|dragon|football|baseball|master|shadow|login|princess|sunshine|trustno1|zaq12wsx|asdfgh|asdfghjkl|zxcvbn|zxcvbnm|changeme|secret|vault|zvault)+[0-9!@#$%^&*._-]{0,8}$/;
 function weakPassword(pw) {
-  const s = pw.normalize('NFKC'), low = s.toLowerCase().replace(/\s+/g, '');
+  const s = pw.normalize('NFKC'),
+    low = s.toLowerCase().replace(/\s+/g, '');
   if (new Set(s).size < 6) return true;
   if (/^[0-9\s]+$/.test(s)) return true;
   if (COMMON.test(low)) return true;
   let step = 0;
-  for (let i = 1; i < low.length; i++) { const d = low.charCodeAt(i) - low.charCodeAt(i - 1); if (d === 1 || d === -1) step++; }
+  for (let i = 1; i < low.length; i++) {
+    const d = low.charCodeAt(i) - low.charCodeAt(i - 1);
+    if (d === 1 || d === -1) step++;
+  }
   return step >= (low.length - 1) * 0.8;
 }
 
-const recBytes = size => size === 0 ? 0 : size + Math.ceil(size / CH) * OVER;
+const recBytes = size => (size === 0 ? 0 : size + Math.ceil(size / CH) * OVER);
 const hkey = (master, label) => Buffer.from(crypto.hkdfSync('sha256', master, Buffer.alloc(0), 'zvault ' + label, 32));
 
 async function kek(password, salt, logN) {
@@ -34,7 +43,9 @@ async function kek(password, salt, logN) {
   try {
     const N = 2 ** logN;
     return await scrypt(pw, salt, 32, { N, r: R, p: P, maxmem: 128 * N * R * 2 });
-  } finally { pw.fill(0); }
+  } finally {
+    pw.fill(0);
+  }
 }
 
 function seal(key, aad, plain) {
@@ -51,7 +62,13 @@ function unseal(key, aad, rec) {
   d.setAuthTag(rec.subarray(rec.length - 16));
   return Buffer.concat([d.update(rec.subarray(12, rec.length - 16)), d.final()]);
 }
-const chunkAad = (id, i, last) => { const b = Buffer.alloc(21); id.copy(b, 0); b.writeUInt32LE(i, 16); b[20] = last ? 1 : 0; return b; };
+const chunkAad = (id, i, last) => {
+  const b = Buffer.alloc(21);
+  id.copy(b, 0);
+  b.writeUInt32LE(i, 16);
+  b[20] = last ? 1 : 0;
+  return b;
+};
 
 function wrap(key, master, h) {
   const c = crypto.createCipheriv('aes-256-gcm', key, h.subarray(42, 54), { authTagLength: 16 });
@@ -92,12 +109,25 @@ async function writeAll(fh, buf, pos) {
 }
 
 function parseIndex(text, fileSize) {
-  const j = JSON.parse(text), bad = () => new Error('The vault index is damaged.');
+  const j = JSON.parse(text),
+    bad = () => new Error('The vault index is damaged.');
   if (!j || j.v !== 1 || !Array.isArray(j.files)) throw bad();
   return {
     files: j.files.map(f => {
-      if (!f || typeof f.id !== 'string' || !/^[0-9a-f]{32}$/.test(f.id) || typeof f.name !== 'string' || !f.name || f.name.length > 1024 ||
-          !Number.isSafeInteger(f.size) || f.size < 0 || !Number.isSafeInteger(f.off) || f.off < HDR || f.off + recBytes(f.size) > fileSize) throw bad();
+      if (
+        !f ||
+        typeof f.id !== 'string' ||
+        !/^[0-9a-f]{32}$/.test(f.id) ||
+        typeof f.name !== 'string' ||
+        !f.name ||
+        f.name.length > 1024 ||
+        !Number.isSafeInteger(f.size) ||
+        f.size < 0 ||
+        !Number.isSafeInteger(f.off) ||
+        f.off < HDR ||
+        f.off + recBytes(f.size) > fileSize
+      )
+        throw bad();
       return { id: f.id, name: f.name, size: f.size, mtime: Number.isFinite(f.mtime) ? f.mtime : 0, off: f.off };
     })
   };
@@ -110,26 +140,44 @@ async function openVault(file, password) {
     const size = (await fh.stat()).size;
     if (size < HDR) throw new Error('That file is not a vault.');
     const head = await readFull(fh, HDR, 0);
-    if (!head.subarray(0, 6).equals(MAGIC)) throw new Error('That file is not a vault made by Zane\'s Utilities.');
+    if (!head.subarray(0, 6).equals(MAGIC)) throw new Error("That file is not a vault made by Zane's Utilities.");
     if (head[6] !== VERSION) throw new Error('This vault was made by a newer version of the app.');
-    if (head[7] < 14 || head[7] > 19 || head[8] !== R || head[9] !== P) throw new Error('This vault uses settings this version does not support.');
+    if (head[7] < 14 || head[7] > 19 || head[8] !== R || head[9] !== P)
+      throw new Error('This vault uses settings this version does not support.');
     const key = await kek(password, head.subarray(10, 42), head[7]);
     let master;
-    try { master = unwrap(key, head); }
-    catch { throw new Error('Wrong password, or the vault file is damaged.'); }
-    finally { key.fill(0); }
-    const dk = hkey(master, 'data'), ik = hkey(master, 'index');
+    try {
+      master = unwrap(key, head);
+    } catch {
+      throw new Error('Wrong password, or the vault file is damaged.');
+    } finally {
+      key.fill(0);
+    }
+    const dk = hkey(master, 'data'),
+      ik = hkey(master, 'index');
     try {
       const p = head.subarray(PTR_AT, PTR_AT + 16);
       const sum = crypto.createHash('sha256').update(p.subarray(0, 12)).digest().subarray(0, 4);
-      const off = Number(p.readBigUInt64LE(0)), len = p.readUInt32LE(8);
-      if (!sum.equals(p.subarray(12, 16)) || off < HDR || len < OVER || len > MAX_INDEX || off + len > size) throw new Error('The vault index pointer is damaged.');
+      const off = Number(p.readBigUInt64LE(0)),
+        len = p.readUInt32LE(8);
+      if (!sum.equals(p.subarray(12, 16)) || off < HDR || len < OVER || len > MAX_INDEX || off + len > size)
+        throw new Error('The vault index pointer is damaged.');
       let text;
-      try { text = unseal(ik, IDX_AAD, await readFull(fh, len, off)).toString('utf8'); }
-      catch { throw new Error('The vault index failed its integrity check. The file is damaged or was changed.'); }
+      try {
+        text = unseal(ik, IDX_AAD, await readFull(fh, len, off)).toString('utf8');
+      } catch {
+        throw new Error('The vault index failed its integrity check. The file is damaged or was changed.');
+      }
       return { file, head, master, dk, ik, index: parseIndex(text, size) };
-    } catch (e) { master.fill(0); dk.fill(0); ik.fill(0); throw e; }
-  } finally { await fh.close(); }
+    } catch (e) {
+      master.fill(0);
+      dk.fill(0);
+      ik.fill(0);
+      throw e;
+    }
+  } finally {
+    await fh.close();
+  }
 }
 
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
@@ -141,53 +189,95 @@ function safeParts(name) {
   });
 }
 async function createUnique(dir, fileName) {
-  const ext = path.extname(fileName), stem = fileName.slice(0, fileName.length - ext.length);
+  const ext = path.extname(fileName),
+    stem = fileName.slice(0, fileName.length - ext.length);
   for (let n = 0; n < 1000; n++) {
     const p = path.join(dir, n ? stem + ' (' + (n + 1) + ')' + ext : fileName);
-    try { return { p, fh: await fsp.open(p, 'wx') }; } catch (e) { if (e.code !== 'EEXIST') throw e; }
+    try {
+      return { p, fh: await fsp.open(p, 'wx') };
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+    }
   }
   throw new Error('Too many files with the same name.');
 }
 
 const norm = p => path.resolve(p).toLowerCase();
-const nice = e => e && e.code === 'ENOSPC' ? 'The disk is full.' : e && e.code === 'EBUSY' ? 'The file is in use by another program.' : e && e.code === 'EPERM' ? 'Windows denied permission.' :
-  e && e.code === 'EACCES' ? 'Windows denied permission.' : e && e.code === 'ENOENT' ? 'The file could not be found.' : String((e && e.message) || e);
+const nice = e =>
+  e && e.code === 'ENOSPC'
+    ? 'The disk is full.'
+    : e && e.code === 'EBUSY'
+      ? 'The file is in use by another program.'
+      : e && e.code === 'EPERM'
+        ? 'Windows denied permission.'
+        : e && e.code === 'EACCES'
+          ? 'Windows denied permission.'
+          : e && e.code === 'ENOENT'
+            ? 'The file could not be found.'
+            : String((e && e.message) || e);
 
 function register(ipcMain, getWin, { dialog }) {
   const allowed = new Set();
-  let S = null, busy = false, stop = false, idle = 0, lastTick = 0;
-  const send = m => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send('vlt:progress', m); };
-  const tick = (m, force) => { const now = Date.now(); if (!force && now - lastTick < 100) return; lastTick = now; send(m); };
+  let S = null,
+    busy = false,
+    stop = false,
+    idle = 0,
+    lastTick = 0;
+  const send = m => {
+    const w = getWin();
+    if (w && !w.isDestroyed()) w.webContents.send('vlt:progress', m);
+  };
+  const tick = (m, force) => {
+    const now = Date.now();
+    if (!force && now - lastTick < 100) return;
+    lastTick = now;
+    send(m);
+  };
 
   function touch() {
     clearTimeout(idle);
-    idle = setTimeout(() => { if (busy) touch(); else lock('idle'); }, IDLE_MS);
+    idle = setTimeout(() => {
+      if (busy) touch();
+      else lock('idle');
+    }, IDLE_MS);
   }
   function lock(reason) {
-    clearTimeout(idle); idle = 0;
+    clearTimeout(idle);
+    idle = 0;
     if (!S) return;
-    S.master.fill(0); S.dk.fill(0); S.ik.fill(0);
+    S.master.fill(0);
+    S.dk.fill(0);
+    S.ik.fill(0);
     S = null;
     if (reason) send({ t: 'locked', reason });
   }
-  const view = () => S && {
-    name: path.basename(S.file),
-    bytes: S.index.files.reduce((a, f) => a + f.size, 0),
-    files: S.index.files.map(({ id, name, size, mtime }) => ({ id, name, size, mtime }))
-  };
+  const view = () =>
+    S && {
+      name: path.basename(S.file),
+      bytes: S.index.files.reduce((a, f) => a + f.size, 0),
+      files: S.index.files.map(({ id, name, size, mtime }) => ({ id, name, size, mtime }))
+    };
 
   async function guard(fn, needOpen = true) {
     if (busy) return { ok: false, error: 'Another vault task is already running.' };
     if (needOpen && !S) return { ok: false, error: 'The vault is locked. Unlock it first.' };
-    busy = true; stop = false;
-    try { const r = await fn(); if (S) touch(); return r; }
-    catch (e) { return { ok: false, error: nice(e) }; }
-    finally { busy = false; }
+    busy = true;
+    stop = false;
+    try {
+      const r = await fn();
+      if (S) touch();
+      return r;
+    } catch (e) {
+      return { ok: false, error: nice(e) };
+    } finally {
+      busy = false;
+    }
   }
   const pwOk = (v, strict) => {
     if (typeof v !== 'string' || !v) throw new Error('Enter the password.');
     if (strict && v.length < 12) throw new Error('Use at least 12 characters. A long passphrase of several words is best.');
-    if (strict && weakPassword(v)) throw new Error('That password is too easy to guess. Use a longer passphrase made of several unrelated words.');
+    if (strict && weakPassword(v))
+      throw new Error('That password is too easy to guess. Use a longer passphrase made of several unrelated words.');
     if (v.length > 512) throw new Error('That password is too long (512 characters at most).');
     return v;
   };
@@ -207,18 +297,30 @@ function register(ipcMain, getWin, { dialog }) {
         if (stop) throw Object.assign(new Error('stopped'), { stopped: true });
         let len = recBytes(f.size);
         if (rekey) {
-          const id = Buffer.from(f.id, 'hex'), n = Math.ceil(f.size / CH);
-          let rpos = f.off, wpos = pos;
+          const id = Buffer.from(f.id, 'hex'),
+            n = Math.ceil(f.size / CH);
+          let rpos = f.off,
+            wpos = pos;
           for (let i = 0; i < n; i++) {
             if (stop) throw Object.assign(new Error('stopped'), { stopped: true });
-            const plen = Math.min(CH, f.size - i * CH), last = i === n - 1;
+            const plen = Math.min(CH, f.size - i * CH),
+              last = i === n - 1;
             let plain;
-            try { plain = unseal(S.dk, chunkAad(id, i, last), await readFull(src, plen + OVER, rpos)); }
-            catch (e) { throw new Error(e && /Unsupported state|authenticate/i.test(e.message) ? 'Failed the integrity check. The vault file is damaged or was changed.' : e.message); }
+            try {
+              plain = unseal(S.dk, chunkAad(id, i, last), await readFull(src, plen + OVER, rpos));
+            } catch (e) {
+              throw new Error(
+                e && /Unsupported state|authenticate/i.test(e.message)
+                  ? 'Failed the integrity check. The vault file is damaged or was changed.'
+                  : e.message
+              );
+            }
             const rec = seal(rekey.dk, chunkAad(id, i, last), plain);
             plain.fill(0);
             await writeAll(out, rec, wpos);
-            rpos += plen + OVER; wpos += rec.length; done += plen;
+            rpos += plen + OVER;
+            wpos += rec.length;
+            done += plen;
             tick({ t: 'p', name: f.name, done, total: Math.max(total, 1) });
           }
         } else {
@@ -226,7 +328,8 @@ function register(ipcMain, getWin, { dialog }) {
             const n = Math.min(buf.length, len - c);
             const b = await readFull(src, n, f.off + c);
             await writeAll(out, b, pos + c);
-            c += n; done += n;
+            c += n;
+            done += n;
             tick({ t: 'p', name: f.name, done, total: Math.max(total, 1) });
           }
         }
@@ -239,70 +342,104 @@ function register(ipcMain, getWin, { dialog }) {
       ptrBuf(pos, blob.length).copy(h, PTR_AT);
       await writeAll(out, h, 0);
       await out.sync();
-      await out.close(); out = null;
+      await out.close();
+      out = null;
       await src.close();
       await fsp.rename(tmp, S.file);
       return { head: h, files: moved };
     } catch (e) {
-      try { if (out) await out.close(); } catch {}
-      try { await src.close(); } catch {}
+      try {
+        if (out) await out.close();
+      } catch {}
+      try {
+        await src.close();
+      } catch {}
       await fsp.unlink(tmp).catch(() => {});
       throw e;
     }
   }
 
   ipcMain.handle('vlt:state', () => ({ ok: true, data: view() }));
-  ipcMain.handle('vlt:cancel', () => { stop = true; return true; });
-  ipcMain.handle('vlt:lock', () => { if (!busy) lock(); else stop = true; return { ok: true }; });
+  ipcMain.handle('vlt:cancel', () => {
+    stop = true;
+    return true;
+  });
+  ipcMain.handle('vlt:lock', () => {
+    if (!busy) lock();
+    else stop = true;
+    return { ok: true };
+  });
 
-  ipcMain.handle('vlt:create', (_e, req) => guard(async () => {
-    const password = pwOk(req && req.password, true);
-    const r = await dialog.showSaveDialog(getWin(), {
-      title: 'Create vault', defaultPath: 'My vault.zvault', filters: [{ name: 'Encrypted vault', extensions: ['zvault'] }]
-    });
-    if (r.canceled || !r.filePath) return { ok: false, declined: true, error: 'Cancelled. No vault was created.' };
-    let file = r.filePath;
-    if (!/\.zvault$/i.test(file)) {
-      file += '.zvault';
-      if (fs.existsSync(file)) return { ok: false, error: path.basename(file) + ' already exists. Choose another name.' };
-    }
-    lock();
-    const salt = crypto.randomBytes(32), master = crypto.randomBytes(32);
-    const key = await kek(password, salt, LOGN);
-    const head = Buffer.alloc(HDR);
-    MAGIC.copy(head, 0); head[6] = VERSION; head[7] = LOGN; head[8] = R; head[9] = P;
-    salt.copy(head, 10); crypto.randomBytes(12).copy(head, 42);
-    wrap(key, master, head).copy(head, 54);
-    key.fill(0);
-    const dk = hkey(master, 'data'), ik = hkey(master, 'index');
-    const blob = seal(ik, IDX_AAD, Buffer.from(indexText([]), 'utf8'));
-    ptrBuf(HDR, blob.length).copy(head, PTR_AT);
-    const fh = await fsp.open(file, 'w');
-    try { await writeAll(fh, Buffer.concat([head, blob]), 0); await fh.sync(); } finally { await fh.close(); }
-    S = { file, head, master, dk, ik, index: { files: [] } };
-    touch();
-    return { ok: true, data: view() };
-  }, false));
+  ipcMain.handle('vlt:create', (_e, req) =>
+    guard(async () => {
+      const password = pwOk(req && req.password, true);
+      const r = await dialog.showSaveDialog(getWin(), {
+        title: 'Create vault',
+        defaultPath: 'My vault.zvault',
+        filters: [{ name: 'Encrypted vault', extensions: ['zvault'] }]
+      });
+      if (r.canceled || !r.filePath) return { ok: false, declined: true, error: 'Cancelled. No vault was created.' };
+      let file = r.filePath;
+      if (!/\.zvault$/i.test(file)) {
+        file += '.zvault';
+        if (fs.existsSync(file)) return { ok: false, error: path.basename(file) + ' already exists. Choose another name.' };
+      }
+      lock();
+      const salt = crypto.randomBytes(32),
+        master = crypto.randomBytes(32);
+      const key = await kek(password, salt, LOGN);
+      const head = Buffer.alloc(HDR);
+      MAGIC.copy(head, 0);
+      head[6] = VERSION;
+      head[7] = LOGN;
+      head[8] = R;
+      head[9] = P;
+      salt.copy(head, 10);
+      crypto.randomBytes(12).copy(head, 42);
+      wrap(key, master, head).copy(head, 54);
+      key.fill(0);
+      const dk = hkey(master, 'data'),
+        ik = hkey(master, 'index');
+      const blob = seal(ik, IDX_AAD, Buffer.from(indexText([]), 'utf8'));
+      ptrBuf(HDR, blob.length).copy(head, PTR_AT);
+      const fh = await fsp.open(file, 'w');
+      try {
+        await writeAll(fh, Buffer.concat([head, blob]), 0);
+        await fh.sync();
+      } finally {
+        await fh.close();
+      }
+      S = { file, head, master, dk, ik, index: { files: [] } };
+      touch();
+      return { ok: true, data: view() };
+    }, false)
+  );
 
   ipcMain.handle('vlt:pick', async () => {
     const r = await dialog.showOpenDialog(getWin(), {
-      title: 'Open vault', properties: ['openFile'],
-      filters: [{ name: 'Encrypted vault', extensions: ['zvault'] }, { name: 'All files', extensions: ['*'] }]
+      title: 'Open vault',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Encrypted vault', extensions: ['zvault'] },
+        { name: 'All files', extensions: ['*'] }
+      ]
     });
     if (r.canceled || !r.filePaths[0]) return { ok: true, data: null };
     allowed.add(r.filePaths[0]);
     return { ok: true, data: { file: r.filePaths[0], name: path.basename(r.filePaths[0]) } };
   });
 
-  ipcMain.handle('vlt:open', (_e, req) => guard(async () => {
-    const file = String((req && req.file) || '');
-    if (!allowed.has(file)) return { ok: false, error: 'Choose the vault file first.' };
-    const password = pwOk(req.password, false);
-    lock();
-    S = await openVault(file, password);
-    touch();
-    return { ok: true, data: view() };
-  }, false));
+  ipcMain.handle('vlt:open', (_e, req) =>
+    guard(async () => {
+      const file = String((req && req.file) || '');
+      if (!allowed.has(file)) return { ok: false, error: 'Choose the vault file first.' };
+      const password = pwOk(req.password, false);
+      lock();
+      S = await openVault(file, password);
+      touch();
+      return { ok: true, data: view() };
+    }, false)
+  );
 
   async function addFiles(req) {
     const kind = req && req.kind === 'folders' ? 'folders' : 'files';
@@ -312,41 +449,60 @@ function register(ipcMain, getWin, { dialog }) {
     });
     if (r.canceled || !r.filePaths.length) return { ok: true, data: { added: 0, replaced: 0, failed: [], vault: view() } };
 
-    const items = [], failed = [], used = new Set();
+    const items = [],
+      failed = [],
+      used = new Set();
     const uniq = base => {
-      const ext = path.extname(base), stem = base.slice(0, base.length - ext.length);
-      let n = 1, name = base;
-      while (used.has(name.toLowerCase())) name = stem + ' (' + (++n) + ')' + ext;
+      const ext = path.extname(base),
+        stem = base.slice(0, base.length - ext.length);
+      let n = 1,
+        name = base;
+      while (used.has(name.toLowerCase())) name = stem + ' (' + ++n + ')' + ext;
       used.add(name.toLowerCase());
       return name;
     };
     async function collect(abs, name) {
       try {
         const st = await fsp.lstat(abs);
-        if (st.isSymbolicLink()) { failed.push({ path: abs, error: 'Shortcuts and links are skipped.' }); return; }
-        if (st.isDirectory()) { for (const e of await fsp.readdir(abs)) await collect(path.join(abs, e), name + '/' + e); }
-        else if (st.isFile()) { if (norm(abs) !== norm(S.file)) items.push({ abs, name, mtime: st.mtimeMs }); }
-      } catch (e) { failed.push({ path: abs, error: nice(e) }); }
+        if (st.isSymbolicLink()) {
+          failed.push({ path: abs, error: 'Shortcuts and links are skipped.' });
+          return;
+        }
+        if (st.isDirectory()) {
+          for (const e of await fsp.readdir(abs)) await collect(path.join(abs, e), name + '/' + e);
+        } else if (st.isFile()) {
+          if (norm(abs) !== norm(S.file)) items.push({ abs, name, mtime: st.mtimeMs });
+        }
+      } catch (e) {
+        failed.push({ path: abs, error: nice(e) });
+      }
     }
     for (const p of r.filePaths) await collect(p, uniq(path.basename(p) || p));
 
     const fh = await fsp.open(S.file, 'r+');
     const start = (await fh.stat()).size;
-    let pos = start, committed = false;
+    let pos = start,
+      committed = false;
     const added = [];
     try {
       let total = 0;
-      for (const it of items) { try { total += (await fsp.stat(it.abs)).size; } catch {} }
+      for (const it of items) {
+        try {
+          total += (await fsp.stat(it.abs)).size;
+        } catch {}
+      }
       let done = 0;
       const buf = Buffer.allocUnsafe(CH);
       for (const it of items) {
         if (stop) throw Object.assign(new Error('stopped'), { stopped: true });
-        const id = crypto.randomBytes(16), off = pos;
+        const id = crypto.randomBytes(16),
+          off = pos;
         let src = null;
         try {
           src = await fsp.open(it.abs, 'r');
           const size = (await src.stat()).size;
-          let read = 0, idx = 0;
+          let read = 0,
+            idx = 0;
           while (read < size) {
             if (stop) throw Object.assign(new Error('stopped'), { stopped: true });
             const n = Math.min(CH, size - read);
@@ -358,7 +514,10 @@ function register(ipcMain, getWin, { dialog }) {
             }
             const rec = seal(S.dk, chunkAad(id, idx, read + n >= size), buf.subarray(0, n));
             await writeAll(fh, rec, pos);
-            pos += rec.length; read += n; idx++; done += n;
+            pos += rec.length;
+            read += n;
+            idx++;
+            done += n;
             tick({ t: 'p', name: it.name, done, total: Math.max(total, 1) });
           }
           added.push({ id: id.toString('hex'), name: it.name, size, mtime: Math.round(it.mtime), off });
@@ -366,9 +525,14 @@ function register(ipcMain, getWin, { dialog }) {
           if (e.stopped) throw e;
           pos = off;
           failed.push({ path: it.abs, error: nice(e) });
-        } finally { if (src) await src.close(); }
+        } finally {
+          if (src) await src.close();
+        }
       }
-      if (!added.length) { await fh.truncate(start); return { ok: true, data: { added: 0, replaced: 0, failed, vault: view() } }; }
+      if (!added.length) {
+        await fh.truncate(start);
+        return { ok: true, data: { added: 0, replaced: 0, failed, vault: view() } };
+      }
 
       const names = new Set(added.map(f => f.name.toLowerCase()));
       const kept = S.index.files.filter(f => !names.has(f.name.toLowerCase()));
@@ -388,125 +552,198 @@ function register(ipcMain, getWin, { dialog }) {
       if (e.stopped) return { ok: false, declined: true, error: 'Stopped. Nothing was added.' };
       throw e;
     } finally {
-      if (!committed) { try { await fh.truncate(start); } catch {} }
+      if (!committed) {
+        try {
+          await fh.truncate(start);
+        } catch {}
+      }
       await fh.close();
     }
   }
 
-  ipcMain.handle('vlt:add', (_e, req) => guard(async () => {
-    const r = await addFiles(req);
-    if (r.ok && r.data && r.data.replaced > 0) {
-      try { const x = await rewrite(S.index.files, S.head); S.head = x.head; S.index = { files: x.files }; r.data.vault = view(); } catch {}
-    }
-    return r;
-  }));
-
-  ipcMain.handle('vlt:extract', (_e, req) => guard(async () => {
-    const ids = new Set(Array.isArray(req && req.ids) ? req.ids.filter(x => typeof x === 'string') : []);
-    const list = S.index.files.filter(f => ids.has(f.id));
-    if (!list.length) return { ok: false, error: 'Nothing was selected.' };
-    const r = await dialog.showOpenDialog(getWin(), {
-      title: 'Choose where to save the decrypted files', properties: ['openDirectory', 'createDirectory']
-    });
-    if (r.canceled || !r.filePaths[0]) return { ok: false, declined: true, error: 'Cancelled. Nothing was extracted.' };
-    const dir = r.filePaths[0];
-
-    const vfh = await fsp.open(S.file, 'r');
-    const failed = [];
-    let count = 0, bytes = 0, done = 0, cancelled = false;
-    const total = list.reduce((a, f) => a + f.size, 0);
-    try {
-      for (const f of list) {
-        if (stop) { cancelled = true; break; }
-        const parts = safeParts(f.name);
-        let made = null;
+  ipcMain.handle('vlt:add', (_e, req) =>
+    guard(async () => {
+      const r = await addFiles(req);
+      if (r.ok && r.data && r.data.replaced > 0) {
         try {
-          const sub = path.join(dir, ...parts.slice(0, -1));
-          await fsp.mkdir(sub, { recursive: true });
-          made = await createUnique(sub, parts[parts.length - 1]);
-          const id = Buffer.from(f.id, 'hex'), n = Math.ceil(f.size / CH);
-          let pos = f.off, w = 0;
-          for (let i = 0; i < n; i++) {
-            if (stop) throw Object.assign(new Error('stopped'), { stopped: true });
-            const plen = Math.min(CH, f.size - i * CH);
-            let plain;
-            try { plain = unseal(S.dk, chunkAad(id, i, i === n - 1), await readFull(vfh, plen + OVER, pos)); }
-            catch (e) { throw new Error(e && /Unsupported state|authenticate/i.test(e.message) ? 'Failed the integrity check. The vault file is damaged or was changed.' : e.message); }
-            await writeAll(made.fh, plain, w);
-            plain.fill(0);
-            pos += plen + OVER; w += plen; done += plen;
-            tick({ t: 'p', name: f.name, done, total: Math.max(total, 1) });
-          }
-          await made.fh.close(); made.fh = null;
-          if (f.mtime) await fsp.utimes(made.p, new Date(), new Date(f.mtime)).catch(() => {});
-          count++; bytes += f.size;
-        } catch (e) {
-          if (made) { try { if (made.fh) await made.fh.close(); } catch {} await fsp.unlink(made.p).catch(() => {}); }
-          if (e.stopped) { cancelled = true; break; }
-          failed.push({ name: f.name, error: nice(e) });
-        }
+          const x = await rewrite(S.index.files, S.head);
+          S.head = x.head;
+          S.index = { files: x.files };
+          r.data.vault = view();
+        } catch {}
       }
-    } finally { await vfh.close(); }
-    return { ok: true, data: { count, bytes, dir, failed, cancelled } };
-  }));
+      return r;
+    })
+  );
 
-  ipcMain.handle('vlt:remove', (_e, req) => guard(async () => {
-    const ids = new Set(Array.isArray(req && req.ids) ? req.ids.filter(x => typeof x === 'string') : []);
-    const gone = S.index.files.filter(f => ids.has(f.id));
-    if (!gone.length) return { ok: false, error: 'Nothing was selected.' };
-    const ask = await dialog.showMessageBox(getWin(), {
-      type: 'warning', buttons: ['Cancel', 'Remove from vault'], defaultId: 0, cancelId: 0, noLink: true,
-      title: 'Remove from vault?',
-      message: 'Remove ' + gone.length + ' item' + (gone.length > 1 ? 's' : '') + ' from the vault?',
-      detail: gone.slice(0, 5).map(f => f.name).join('\n') + (gone.length > 5 ? '\n...and ' + (gone.length - 5) + ' more' : '') +
-        '\n\nThe vault file is rewritten without them. Anything you have not extracted first is lost.'
-    });
-    if (ask.response !== 1) return { ok: false, declined: true, error: 'Cancelled. Nothing was removed.' };
-    const keep = S.index.files.filter(f => !ids.has(f.id));
-    try {
-      const r = await rewrite(keep, S.head);
-      S.head = r.head; S.index = { files: r.files };
-    } catch (e) {
-      if (e.stopped) return { ok: false, declined: true, error: 'Stopped. Nothing was removed.' };
-      throw e;
-    }
-    return { ok: true, data: { removed: gone.length, vault: view() } };
-  }));
+  ipcMain.handle('vlt:extract', (_e, req) =>
+    guard(async () => {
+      const ids = new Set(Array.isArray(req && req.ids) ? req.ids.filter(x => typeof x === 'string') : []);
+      const list = S.index.files.filter(f => ids.has(f.id));
+      if (!list.length) return { ok: false, error: 'Nothing was selected.' };
+      const r = await dialog.showOpenDialog(getWin(), {
+        title: 'Choose where to save the decrypted files',
+        properties: ['openDirectory', 'createDirectory']
+      });
+      if (r.canceled || !r.filePaths[0]) return { ok: false, declined: true, error: 'Cancelled. Nothing was extracted.' };
+      const dir = r.filePaths[0];
 
-  ipcMain.handle('vlt:passwd', (_e, req) => guard(async () => {
-    const oldPw = pwOk(req && req.oldPassword, false), newPw = pwOk(req && req.newPassword, true);
-    const k0 = await kek(oldPw, S.head.subarray(10, 42), S.head[7]);
-    try {
-      const m = unwrap(k0, S.head);
-      const same = crypto.timingSafeEqual(m, S.master);
-      m.fill(0);
-      if (!same) throw new Error('x');
-    } catch { return { ok: false, error: 'The current password is wrong.' }; }
-    finally { k0.fill(0); }
+      const vfh = await fsp.open(S.file, 'r');
+      const failed = [];
+      let count = 0,
+        bytes = 0,
+        done = 0,
+        cancelled = false;
+      const total = list.reduce((a, f) => a + f.size, 0);
+      try {
+        for (const f of list) {
+          if (stop) {
+            cancelled = true;
+            break;
+          }
+          const parts = safeParts(f.name);
+          let made = null;
+          try {
+            const sub = path.join(dir, ...parts.slice(0, -1));
+            await fsp.mkdir(sub, { recursive: true });
+            made = await createUnique(sub, parts[parts.length - 1]);
+            const id = Buffer.from(f.id, 'hex'),
+              n = Math.ceil(f.size / CH);
+            let pos = f.off,
+              w = 0;
+            for (let i = 0; i < n; i++) {
+              if (stop) throw Object.assign(new Error('stopped'), { stopped: true });
+              const plen = Math.min(CH, f.size - i * CH);
+              let plain;
+              try {
+                plain = unseal(S.dk, chunkAad(id, i, i === n - 1), await readFull(vfh, plen + OVER, pos));
+              } catch (e) {
+                throw new Error(
+                  e && /Unsupported state|authenticate/i.test(e.message)
+                    ? 'Failed the integrity check. The vault file is damaged or was changed.'
+                    : e.message
+                );
+              }
+              await writeAll(made.fh, plain, w);
+              plain.fill(0);
+              pos += plen + OVER;
+              w += plen;
+              done += plen;
+              tick({ t: 'p', name: f.name, done, total: Math.max(total, 1) });
+            }
+            await made.fh.close();
+            made.fh = null;
+            if (f.mtime) await fsp.utimes(made.p, new Date(), new Date(f.mtime)).catch(() => {});
+            count++;
+            bytes += f.size;
+          } catch (e) {
+            if (made) {
+              try {
+                if (made.fh) await made.fh.close();
+              } catch {}
+              await fsp.unlink(made.p).catch(() => {});
+            }
+            if (e.stopped) {
+              cancelled = true;
+              break;
+            }
+            failed.push({ name: f.name, error: nice(e) });
+          }
+        }
+      } finally {
+        await vfh.close();
+      }
+      return { ok: true, data: { count, bytes, dir, failed, cancelled } };
+    })
+  );
 
-    const head = Buffer.from(S.head);
-    crypto.randomBytes(32).copy(head, 10);
-    crypto.randomBytes(12).copy(head, 42);
-    head[7] = LOGN;
-    const newMaster = crypto.randomBytes(32);
-    const rekey = { dk: hkey(newMaster, 'data'), ik: hkey(newMaster, 'index') };
-    const wipeNew = () => { newMaster.fill(0); rekey.dk.fill(0); rekey.ik.fill(0); };
-    let r;
-    try {
-      const k1 = await kek(newPw, head.subarray(10, 42), LOGN);
-      wrap(k1, newMaster, head).copy(head, 54);
-      k1.fill(0);
-      r = await rewrite(S.index.files, head, rekey);
-    } catch (e) {
-      wipeNew();
-      if (e.stopped) return { ok: false, declined: true, error: 'Stopped. The password was not changed.' };
-      throw e;
-    }
-    S.master.fill(0); S.dk.fill(0); S.ik.fill(0);
-    S.master = newMaster; S.dk = rekey.dk; S.ik = rekey.ik;
-    S.head = r.head; S.index = { files: r.files };
-    return { ok: true, data: { vault: view() } };
-  }));
+  ipcMain.handle('vlt:remove', (_e, req) =>
+    guard(async () => {
+      const ids = new Set(Array.isArray(req && req.ids) ? req.ids.filter(x => typeof x === 'string') : []);
+      const gone = S.index.files.filter(f => ids.has(f.id));
+      if (!gone.length) return { ok: false, error: 'Nothing was selected.' };
+      const ask = await dialog.showMessageBox(getWin(), {
+        type: 'warning',
+        buttons: ['Cancel', 'Remove from vault'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+        title: 'Remove from vault?',
+        message: 'Remove ' + gone.length + ' item' + (gone.length > 1 ? 's' : '') + ' from the vault?',
+        detail:
+          gone
+            .slice(0, 5)
+            .map(f => f.name)
+            .join('\n') +
+          (gone.length > 5 ? '\n...and ' + (gone.length - 5) + ' more' : '') +
+          '\n\nThe vault file is rewritten without them. Anything you have not extracted first is lost.'
+      });
+      if (ask.response !== 1) return { ok: false, declined: true, error: 'Cancelled. Nothing was removed.' };
+      const keep = S.index.files.filter(f => !ids.has(f.id));
+      try {
+        const r = await rewrite(keep, S.head);
+        S.head = r.head;
+        S.index = { files: r.files };
+      } catch (e) {
+        if (e.stopped) return { ok: false, declined: true, error: 'Stopped. Nothing was removed.' };
+        throw e;
+      }
+      return { ok: true, data: { removed: gone.length, vault: view() } };
+    })
+  );
+
+  ipcMain.handle('vlt:passwd', (_e, req) =>
+    guard(async () => {
+      const oldPw = pwOk(req && req.oldPassword, false),
+        newPw = pwOk(req && req.newPassword, true);
+      const k0 = await kek(oldPw, S.head.subarray(10, 42), S.head[7]);
+      try {
+        const m = unwrap(k0, S.head);
+        const same = crypto.timingSafeEqual(m, S.master);
+        m.fill(0);
+        if (!same) throw new Error('x');
+      } catch {
+        return { ok: false, error: 'The current password is wrong.' };
+      } finally {
+        k0.fill(0);
+      }
+
+      const head = Buffer.from(S.head);
+      crypto.randomBytes(32).copy(head, 10);
+      crypto.randomBytes(12).copy(head, 42);
+      head[7] = LOGN;
+      const newMaster = crypto.randomBytes(32);
+      const rekey = { dk: hkey(newMaster, 'data'), ik: hkey(newMaster, 'index') };
+      const wipeNew = () => {
+        newMaster.fill(0);
+        rekey.dk.fill(0);
+        rekey.ik.fill(0);
+      };
+      let r;
+      try {
+        const k1 = await kek(newPw, head.subarray(10, 42), LOGN);
+        wrap(k1, newMaster, head).copy(head, 54);
+        k1.fill(0);
+        r = await rewrite(S.index.files, head, rekey);
+      } catch (e) {
+        wipeNew();
+        if (e.stopped) return { ok: false, declined: true, error: 'Stopped. The password was not changed.' };
+        throw e;
+      }
+      S.master.fill(0);
+      S.dk.fill(0);
+      S.ik.fill(0);
+      S.master = newMaster;
+      S.dk = rekey.dk;
+      S.ik = rekey.ik;
+      S.head = r.head;
+      S.index = { files: r.files };
+      return { ok: true, data: { vault: view() } };
+    })
+  );
 }
 
-module.exports = { register, _test: { weakPassword, safeParts, recBytes, seal, unseal, chunkAad, wrap, unwrap, ptrBuf, parseIndex, indexText, HDR, OVER, CH } };
+module.exports = {
+  register,
+  _test: { weakPassword, safeParts, recBytes, seal, unseal, chunkAad, wrap, unwrap, ptrBuf, parseIndex, indexText, HDR, OVER, CH }
+};

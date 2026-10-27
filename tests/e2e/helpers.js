@@ -14,7 +14,12 @@ async function launch() {
   await page.waitForLoadState('domcontentloaded');
   await page.waitForSelector('.nv[data-p="home"]');
   const coldStartMs = Date.now() - started;
-  const close = async () => { try { await app.close(); } catch {} fs.rmSync(userData, { recursive: true, force: true }); };
+  const close = async () => {
+    try {
+      await app.close();
+    } catch {}
+    fs.rmSync(userData, { recursive: true, force: true });
+  };
   return { app, page, userData, coldStartMs, close };
 }
 

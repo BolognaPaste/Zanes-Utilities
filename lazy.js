@@ -25,7 +25,10 @@
       const s = document.createElement('script');
       s.src = src;
       s.onload = resolve;
-      s.onerror = () => { s.remove(); reject(new Error('Could not load ' + src + '.')); };
+      s.onerror = () => {
+        s.remove();
+        reject(new Error('Could not load ' + src + '.'));
+      };
       document.body.appendChild(s);
     });
     files.set(src, p);
@@ -44,7 +47,10 @@
       for (const src of SCRIPTS[tab]) await addScript(src);
     })();
     tabs.set(tab, p);
-    p.then(() => ready.add(tab), () => tabs.delete(tab));
+    p.then(
+      () => ready.add(tab),
+      () => tabs.delete(tab)
+    );
     return p;
   }
 
@@ -52,7 +58,8 @@
     const pg = document.getElementById('p-' + tab);
     if (!pg) return;
     pg.toggleAttribute('inert', on);
-    if (on) pg.setAttribute('aria-busy', 'true'); else pg.removeAttribute('aria-busy');
+    if (on) pg.setAttribute('aria-busy', 'true');
+    else pg.removeAttribute('aria-busy');
     const old = pg.querySelector(':scope > .lz-err');
     if (old) old.remove();
   };
@@ -72,17 +79,26 @@
     b.addEventListener('click', () => {
       if (ready.has(tab)) return;
       busy(tab, true);
-      load(tab).then(() => {
-        busy(tab, false);
-        if (b.getAttribute('aria-current') === 'page') b.click();
-      }, err => { busy(tab, false); fail(tab, err); });
+      load(tab).then(
+        () => {
+          busy(tab, false);
+          if (b.getAttribute('aria-current') === 'page') b.click();
+        },
+        err => {
+          busy(tab, false);
+          fail(tab, err);
+        }
+      );
     });
   });
 
   try {
     if (localStorage.getItem('gca-dv-auto') !== '0') {
-      const go = () => { load('drv').catch(() => {}); };
-      if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 3000 }); else setTimeout(go, 1500);
+      const go = () => {
+        load('drv').catch(() => {});
+      };
+      if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 3000 });
+      else setTimeout(go, 1500);
     }
   } catch (e) {}
 
@@ -90,11 +106,19 @@
     const preloadAll = async () => {
       for (const tab of Object.keys(SCRIPTS)) {
         if (tab === 'drv') continue;
-        try { await load(tab); } catch (e) {}
+        try {
+          await load(tab);
+        } catch (e) {}
       }
     };
-    const go = () => { preloadAll(); };
-    if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 3000 }); else setTimeout(go, 1500);
-    if (window.appLock && window.appLock.onChange) window.appLock.onChange(m => { if (m && m.locked === false) preloadAll(); });
+    const go = () => {
+      preloadAll();
+    };
+    if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 3000 });
+    else setTimeout(go, 1500);
+    if (window.appLock && window.appLock.onChange)
+      window.appLock.onChange(m => {
+        if (m && m.locked === false) preloadAll();
+      });
   }
 })();

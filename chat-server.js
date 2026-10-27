@@ -17,10 +17,12 @@ const HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'X-Frame-Options': 'DENY',
-  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+  'Content-Security-Policy':
+    "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 };
 const MAX_BODY = 8 * 1024;
-const MAX_CONNS = 150, MAX_PER_USER = 5;
+const MAX_CONNS = 150,
+  MAX_PER_USER = 5;
 const POLL_MS = 25000;
 const IDLE_MS = 50000;
 const QUEUE_MAX = 400;
@@ -38,7 +40,9 @@ class ChatServer {
     this.files = {};
   }
 
-  running() { return !!this.srv; }
+  running() {
+    return !!this.srv;
+  }
   status() {
     return { running: this.running(), port: this.port, lan: this.lan, urls: this.running() ? this.urls() : [], connected: this.conns.size };
   }
@@ -53,7 +57,11 @@ class ChatServer {
   }
 
   setTunnel(url) {
-    try { this.tunnelHost = url ? new URL(url).hostname.toLowerCase() : null; } catch { this.tunnelHost = null; }
+    try {
+      this.tunnelHost = url ? new URL(url).hostname.toLowerCase() : null;
+    } catch {
+      this.tunnelHost = null;
+    }
   }
 
   start(port, lan) {
@@ -64,12 +72,21 @@ class ChatServer {
       srv.requestTimeout = 0;
       srv.on('error', err => {
         if (!this.srv) {
-          reject(new Error(err.code === 'EADDRINUSE' ? 'Port ' + port + ' is already in use. Pick another one.'
-            : err.code === 'EACCES' ? 'Windows would not let the app use port ' + port + '. Pick another one.' : 'Could not start: ' + err.message));
+          reject(
+            new Error(
+              err.code === 'EADDRINUSE'
+                ? 'Port ' + port + ' is already in use. Pick another one.'
+                : err.code === 'EACCES'
+                  ? 'Windows would not let the app use port ' + port + '. Pick another one.'
+                  : 'Could not start: ' + err.message
+            )
+          );
         }
       });
       srv.listen(port, lan ? '0.0.0.0' : '127.0.0.1', () => {
-        this.srv = srv; this.port = port; this.lan = !!lan;
+        this.srv = srv;
+        this.port = port;
+        this.lan = !!lan;
         this.reaper = setInterval(() => this._reap(), 10000);
         if (this.reaper.unref) this.reaper.unref();
         resolve(this.status());
@@ -80,10 +97,14 @@ class ChatServer {
     const srv = this.srv;
     if (!srv) return;
     this.srv = null;
-    clearInterval(this.reaper); this.reaper = null;
+    clearInterval(this.reaper);
+    this.reaper = null;
     for (const sid of [...this.conns.keys()]) this._drop(sid);
     this.tunnelHost = null;
-    try { srv.close(); if (srv.closeAllConnections) srv.closeAllConnections(); } catch {}
+    try {
+      srv.close();
+      if (srv.closeAllConnections) srv.closeAllConnections();
+    } catch {}
     this.port = 0;
   }
 
@@ -98,9 +119,17 @@ class ChatServer {
 
   _allowed(req) {
     const host = String(req.headers.host || '');
-    const name = host.replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase();
+    const name = host
+      .replace(/:\d+$/, '')
+      .replace(/^\[|\]$/g, '')
+      .toLowerCase();
     const tunnel = !!this.tunnelHost && name === this.tunnelHost;
-    const ok = tunnel || name === 'localhost' || net.isIP(name) > 0 || name === os.hostname().toLowerCase() || name === os.hostname().toLowerCase() + '.local';
+    const ok =
+      tunnel ||
+      name === 'localhost' ||
+      net.isIP(name) > 0 ||
+      name === os.hostname().toLowerCase() ||
+      name === os.hostname().toLowerCase() + '.local';
     if (!ok) return false;
     const origin = req.headers.origin;
     return !origin || origin === 'http://' + host || (tunnel && origin === 'https://' + host);
@@ -122,15 +151,24 @@ class ChatServer {
   _body(req) {
     return new Promise((resolve, reject) => {
       if (!/^application\/json\b/i.test(String(req.headers['content-type'] || ''))) return reject(new ChatError('Expected JSON.', 415));
-      let size = 0; const parts = [];
+      let size = 0;
+      const parts = [];
       req.on('data', c => {
         size += c.length;
-        if (size > MAX_BODY) { reject(new ChatError('Request too large.', 413)); req.destroy(); return; }
+        if (size > MAX_BODY) {
+          reject(new ChatError('Request too large.', 413));
+          req.destroy();
+          return;
+        }
         parts.push(c);
       });
       req.on('end', () => {
-        try { const v = JSON.parse(Buffer.concat(parts).toString('utf8') || '{}'); resolve(v && typeof v === 'object' ? v : {}); }
-        catch { reject(new ChatError('That was not valid JSON.')); }
+        try {
+          const v = JSON.parse(Buffer.concat(parts).toString('utf8') || '{}');
+          resolve(v && typeof v === 'object' ? v : {});
+        } catch {
+          reject(new ChatError('That was not valid JSON.'));
+        }
       });
       req.on('error', () => reject(new ChatError('Request failed.')));
     });
@@ -140,7 +178,9 @@ class ChatServer {
     try {
       if (!this.files[name]) this.files[name] = fs.readFileSync(path.join(this.root, name));
       this._send(res, 200, this.files[name], type);
-    } catch { this._send(res, 404, 'Not found', 'text/plain; charset=utf-8'); }
+    } catch {
+      this._send(res, 404, 'Not found', 'text/plain; charset=utf-8');
+    }
   }
 
   async _handle(req, res) {
@@ -166,12 +206,21 @@ class ChatServer {
       const u = this._user(req, url);
       if (p === '/api/connect') return this._send(res, 200, { sid: this._connect(u) });
       if (p === '/api/send') return this._send(res, 200, { id: this.hub.send(u.id, String(b.ch), b.text) });
-      if (p === '/api/typing') { this.hub.typing(u.id, String(b.ch)); return this._send(res, 200, {}); }
-      if (p === '/api/delete') { this.hub.remove(u.id, String(b.ch), Number(b.id)); return this._send(res, 200, {}); }
+      if (p === '/api/typing') {
+        this.hub.typing(u.id, String(b.ch));
+        return this._send(res, 200, {});
+      }
+      if (p === '/api/delete') {
+        this.hub.remove(u.id, String(b.ch), Number(b.id));
+        return this._send(res, 200, {});
+      }
       return this._send(res, 404, { error: 'Unknown request.' });
     } catch (err) {
       if (!res.headersSent) this._fail(res, err);
-      else try { res.end(); } catch {}
+      else
+        try {
+          res.end();
+        } catch {}
     }
   }
 
@@ -181,7 +230,11 @@ class ChatServer {
     const sid = crypto.randomBytes(16).toString('hex');
     const c = { uid: user.id, queue: [], n: 0, waiter: null, seen: Date.now(), over: false, unsub: null };
     c.unsub = this.hub.subscribe(user.id, ev => {
-      if (c.queue.length >= QUEUE_MAX) { c.queue.length = 0; c.over = true; return; }
+      if (c.queue.length >= QUEUE_MAX) {
+        c.queue.length = 0;
+        c.over = true;
+        return;
+      }
       c.queue.push({ n: ++c.n, ev });
       this._wake(c);
     });
@@ -192,7 +245,9 @@ class ChatServer {
     const c = this.conns.get(sid);
     if (!c) return;
     this.conns.delete(sid);
-    try { c.unsub(); } catch {}
+    try {
+      c.unsub();
+    } catch {}
     this._wake(c, true);
   }
   _reap() {
@@ -208,9 +263,16 @@ class ChatServer {
     if (ended && !c.queue.length) return this._send(w.res, 410, { error: 'Session ended.' });
     c.seen = Date.now();
     const body = { events: c.queue.map(q => q.ev), n: c.n };
-    if (c.over) { body.resync = true; c.over = false; }
+    if (c.over) {
+      body.resync = true;
+      c.over = false;
+    }
     this._send(w.res, 200, body);
-    if (c.queue.some(q => q.ev.t === 'kicked')) { this.conns.forEach((x, sid) => { if (x === c) this._drop(sid); }); }
+    if (c.queue.some(q => q.ev.t === 'kicked')) {
+      this.conns.forEach((x, sid) => {
+        if (x === c) this._drop(sid);
+      });
+    }
   }
   _poll(req, res, user, url) {
     const sid = String(url.searchParams.get('sid') || '');
@@ -222,12 +284,21 @@ class ChatServer {
     if (c.waiter) this._wake(c);
     if (c.queue.length || c.over) {
       const body = { events: c.queue.map(q => q.ev), n: c.n };
-      if (c.over) { body.resync = true; c.over = false; }
+      if (c.over) {
+        body.resync = true;
+        c.over = false;
+      }
       return this._send(res, 200, body);
     }
     const w = { res, timer: setTimeout(() => this._wake(c), POLL_MS) };
     c.waiter = w;
-    res.on('close', () => { if (c.waiter === w) { clearTimeout(w.timer); c.waiter = null; c.seen = Date.now(); } });
+    res.on('close', () => {
+      if (c.waiter === w) {
+        clearTimeout(w.timer);
+        c.waiter = null;
+        c.seen = Date.now();
+      }
+    });
   }
 }
 

@@ -7,7 +7,11 @@ const path = require('path');
 const { create, redact, MAX_BYTES, KEEP } = require('../../logger');
 const diagnostics = require('../../diagnostics');
 
-const tmp = t => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'zu-log-')); t.after(() => fs.rmSync(d, { recursive: true, force: true })); return d; };
+const tmp = t => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'zu-log-'));
+  t.after(() => fs.rmSync(d, { recursive: true, force: true }));
+  return d;
+};
 
 test('redact hides the home folder, user name, LAN addresses, tunnel hosts, hex secrets and key=value secrets', () => {
   const o = { home: 'C:\\Users\\Zane', user: 'Zane' };
@@ -55,14 +59,29 @@ test('logging never throws even when the folder is unusable', t => {
   const blocker = path.join(dir, 'file');
   fs.writeFileSync(blocker, 'x');
   const log = create(path.join(blocker, 'sub'));
-  assert.doesNotThrow(() => { log.info('a'); log.error('b', new Error('c')); });
+  assert.doesNotThrow(() => {
+    log.info('a');
+    log.error('b', new Error('c'));
+  });
   assert.equal(log.readAll(), '');
 });
 
 test('diagnostics bundle contains versions, timings, modules and a redacted log, and no personal data keys', () => {
   const app = { getName: () => 'Zanes Utilities', getVersion: () => '1.0.0', isPackaged: false };
-  const proc = { versions: { electron: '44.7.2', chrome: '1', node: '22' }, platform: 'win32', arch: 'x64', memoryUsage: () => ({ rss: 200 * 1048576, heapUsed: 50 * 1048576 }) };
-  const b = diagnostics.build({ app, process: proc, log: 'password=abc line', timings: { appReady: 120 }, loadedModules: new Set(['chat']), now: 0 });
+  const proc = {
+    versions: { electron: '44.7.2', chrome: '1', node: '22' },
+    platform: 'win32',
+    arch: 'x64',
+    memoryUsage: () => ({ rss: 200 * 1048576, heapUsed: 50 * 1048576 })
+  };
+  const b = diagnostics.build({
+    app,
+    process: proc,
+    log: 'password=abc line',
+    timings: { appReady: 120 },
+    loadedModules: new Set(['chat']),
+    now: 0
+  });
   assert.equal(b.schema, 1);
   assert.equal(b.generated, '1970-01-01T00:00:00.000Z');
   assert.equal(b.app.version, '1.0.0');
@@ -70,6 +89,16 @@ test('diagnostics bundle contains versions, timings, modules and a redacted log,
   assert.deepEqual(b.loadedModules, ['chat']);
   assert.equal(b.memoryMB.rss, 200);
   assert.equal(b.log, 'password=<hidden> line');
-  assert.deepEqual(Object.keys(b).sort(), ['app', 'generated', 'loadedModules', 'log', 'memoryMB', 'runtime', 'schema', 'system', 'timingsMs']);
+  assert.deepEqual(Object.keys(b).sort(), [
+    'app',
+    'generated',
+    'loadedModules',
+    'log',
+    'memoryMB',
+    'runtime',
+    'schema',
+    'system',
+    'timingsMs'
+  ]);
   assert.doesNotThrow(() => JSON.parse(diagnostics.toText(b)));
 });

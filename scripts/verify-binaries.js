@@ -13,7 +13,8 @@ const DIRS = ['scrcpy', 'cloudflared', 'mumble'];
 function walk(dir, out) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) walk(p, out); else if (e.isFile()) out.push(p);
+    if (e.isDirectory()) walk(p, out);
+    else if (e.isFile()) out.push(p);
   }
   return out;
 }
@@ -25,7 +26,10 @@ const onDisk = {};
 for (const d of present) for (const f of walk(d, [])) onDisk[rel(f)] = sha(f);
 
 if (process.argv.includes('--update')) {
-  if (!present.length) { console.error('None of ' + DIRS.join(', ') + ' exist here, nothing to record.'); process.exit(1); }
+  if (!present.length) {
+    console.error('None of ' + DIRS.join(', ') + ' exist here, nothing to record.');
+    process.exit(1);
+  }
   fs.writeFileSync(manifestPath, JSON.stringify({ version: 1, files: onDisk }, null, 2) + '\n');
   console.log('Recorded ' + Object.keys(onDisk).length + ' file hashes in binaries.sha256.json');
   process.exit(0);
@@ -34,14 +38,29 @@ if (process.argv.includes('--update')) {
 const manifest = fs.existsSync(manifestPath) ? JSON.parse(fs.readFileSync(manifestPath, 'utf8')) : { files: {} };
 const want = manifest.files || {};
 if (!Object.keys(want).length) {
-  console.warn('binaries.sha256.json is empty: no hashes are pinned yet. Run `npm run verify:binaries -- --update` on a PC that has the binaries, then commit the file.');
+  console.warn(
+    'binaries.sha256.json is empty: no hashes are pinned yet. Run `npm run verify:binaries -- --update` on a PC that has the binaries, then commit the file.'
+  );
   process.exit(process.argv.includes('--strict') ? 1 : 0);
 }
 let bad = 0;
 for (const [f, h] of Object.entries(want)) {
-  if (!(f in onDisk)) { if (present.some(d => f.startsWith(rel(d) + '/'))) { console.error('MISSING  ' + f); bad++; } continue; }
-  if (onDisk[f] !== h) { console.error('CHANGED  ' + f); bad++; }
+  if (!(f in onDisk)) {
+    if (present.some(d => f.startsWith(rel(d) + '/'))) {
+      console.error('MISSING  ' + f);
+      bad++;
+    }
+    continue;
+  }
+  if (onDisk[f] !== h) {
+    console.error('CHANGED  ' + f);
+    bad++;
+  }
 }
-for (const f of Object.keys(onDisk)) if (!(f in want)) { console.error('UNLISTED ' + f); bad++; }
+for (const f of Object.keys(onDisk))
+  if (!(f in want)) {
+    console.error('UNLISTED ' + f);
+    bad++;
+  }
 console.log(bad ? bad + ' problem(s) found.' : 'All ' + Object.keys(want).length + ' pinned binaries match.');
 process.exit(bad ? 1 : 0);
