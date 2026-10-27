@@ -1,6 +1,4 @@
-const fs = require('fs');
 const secure = require('./secure-store');
-const path = require('path');
 const crypto = require('crypto');
 
 const LIMITS = {

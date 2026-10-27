@@ -195,7 +195,7 @@ class ChatServer {
       if (req.method === 'GET' && p === '/api/poll') return this._poll(req, res, this._user(req, url), url);
       if (req.method === 'GET' && p === '/api/snapshot') return this._send(res, 200, this.hub.snapshot(this._user(req, url).id));
       if (req.method === 'GET' && p === '/api/history') {
-        const u = this._user(req, url);
+        this._user(req, url); // sign-in check: throws 401 without a valid token
         const before = url.searchParams.has('before') ? Number(url.searchParams.get('before')) : undefined;
         return this._send(res, 200, this.hub.history(String(url.searchParams.get('ch')), before));
       }

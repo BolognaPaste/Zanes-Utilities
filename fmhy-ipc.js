@@ -195,7 +195,6 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
       return { ok: true, note };
     }
 
-    const ses = popupSession();
     const b = win.getBounds();
     const w = Math.max(640, Math.round(b.width * 0.85)),
       h = Math.max(480, Math.round(b.height * 0.85));

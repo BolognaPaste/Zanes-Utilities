@@ -1,4 +1,3 @@
-const fs = require('fs');
 const secure = require('./secure-store');
 const path = require('path');
 const { ChatHub, ChatError, HOST } = require('./chat-core');
