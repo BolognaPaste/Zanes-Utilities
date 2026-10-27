@@ -4,8 +4,7 @@
     "checkJs": false,
     "noEmit": true,
     "target": "ES2023",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "nodenext",
     "types": ["node"],
     "skipLibCheck": true,
     "strict": false
