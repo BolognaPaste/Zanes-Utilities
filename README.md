@@ -3,7 +3,6 @@
 Windows desktop app (Electron) with 14 tools: chat and voice host, game library, crash analyzer, game optimizer, media player,
 web games, FMHY browser, driver updater, phone mirroring, file shredder, encrypted vault, SSH terminal, app lock and settings.
 
-
 ## Run it
 
 ```
