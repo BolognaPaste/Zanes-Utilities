@@ -171,7 +171,8 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
-    backgroundColor: '#0f161c',
+    show: false,
+    backgroundColor: '#060b18',
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -184,6 +185,10 @@ function createWindow() {
     }
   });
   mainWin = win;
+  // Show the window after its first paint so it never flashes an empty frame; the timer covers a renderer that never paints.
+  const reveal = () => { if (!win.isDestroyed() && !win.isVisible()) win.show(); };
+  win.once('ready-to-show', reveal);
+  setTimeout(reveal, 5000).unref();
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (EXTERNAL.test(url)) shell.openExternal(url);
     return { action: 'deny' };

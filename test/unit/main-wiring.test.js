@@ -28,7 +28,7 @@ function boot(t) {
       this.webContents = { mainFrame: {}, setWindowOpenHandler() {}, on() {}, once() {}, getURL: () => 'file:///index.html', send() {}, reloadIgnoringCache() {} };
       wins.push(this);
     }
-    loadFile() {} isDestroyed() { return false; }
+    loadFile() {} isDestroyed() { return false; } once() {} isVisible() { return false; } show() {}
     static fromWebContents() { return wins[0]; }
   }
   const electron = {
