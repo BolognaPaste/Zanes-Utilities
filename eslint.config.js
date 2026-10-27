@@ -17,7 +17,9 @@ const node = {
   TextDecoder: 'readonly',
   TextEncoder: 'readonly',
   AbortController: 'readonly',
+  AbortSignal: 'readonly',
   fetch: 'readonly',
+  Response: 'readonly',
   globalThis: 'readonly',
   queueMicrotask: 'readonly',
   structuredClone: 'readonly'
@@ -59,8 +61,74 @@ const browser = {
   alert: 'readonly',
   confirm: 'readonly',
   prompt: 'readonly',
-  performance: 'readonly'
+  performance: 'readonly',
+  location: 'readonly',
+  sessionStorage: 'readonly',
+  indexedDB: 'readonly',
+  innerWidth: 'readonly',
+  innerHeight: 'readonly',
+  cancelAnimationFrame: 'readonly',
+  IntersectionObserver: 'readonly',
+  Event: 'readonly',
+  DOMException: 'readonly',
+  HTMLImageElement: 'readonly'
 };
+// The preload bridge (preload.js exposeInMainWorld) and the window properties one renderer script sets for another.
+const page = Object.fromEntries(
+  [
+    'appTools',
+    'appDiag',
+    'efs',
+    'drivers',
+    'shredder',
+    'vault',
+    'webGames',
+    'appData',
+    'fmhy',
+    'phone',
+    'sshTerm',
+    'localVideos',
+    'optimizer',
+    'chat',
+    'mumble',
+    'secureStore',
+    'appLock',
+    'ChatUI',
+    'fmEnter',
+    'fmPause',
+    'lvEnter',
+    'lvPause',
+    'gmEnter',
+    'gmPause',
+    'phEnter',
+    'phPause'
+  ].map(n => [n, 'readonly'])
+);
+// Top-level names app.js declares. Scripts loaded after it share them through the page's global scope.
+const fromApp = Object.fromEntries(
+  ['$', 'esc', 'toast', 'closeMenu', 'closeDlg', 'base', 'anText', 'E', 'M', 'T'].map(n => [n, 'readonly'])
+);
+const nodeFiles = [
+  'main.js',
+  'preload.js',
+  '*-ipc.js',
+  'chat-core.js',
+  'chat-server.js',
+  'chat-tunnel.js',
+  'chat-remote.js',
+  'keystore.js',
+  'secure-store.js',
+  'vendor-sources.js',
+  'ssh-sftp.js',
+  'adblock.js',
+  'logger.js',
+  'diagnostics.js',
+  'eslint.config.js',
+  'playwright.config.js',
+  'scripts/**/*.js',
+  'test/**/*.js',
+  'tests/**/*.js'
+];
 
 const rules = {
   'no-undef': 'error',
@@ -90,29 +158,12 @@ module.exports = [
       'playwright-report/**'
     ]
   },
-  { files: ['**/*.js'], languageOptions: { ecmaVersion: 2023, sourceType: 'script', globals: browser }, rules },
-  {
-    files: [
-      'main.js',
-      'preload.js',
-      '*-ipc.js',
-      'chat-core.js',
-      'chat-server.js',
-      'chat-tunnel.js',
-      'chat-remote.js',
-      'keystore.js',
-      'secure-store.js',
-      'vendor-sources.js',
-      'ssh-sftp.js',
-      'adblock.js',
-      'logger.js',
-      'diagnostics.js',
-      'eslint.config.js',
-      'playwright.config.js',
-      'scripts/**/*.js',
-      'test/**/*.js',
-      'tests/**/*.js'
-    ],
-    languageOptions: { globals: node }
-  }
+  { files: ['**/*.js'], languageOptions: { ecmaVersion: 2023, sourceType: 'script' }, rules },
+  // Globals merge across matching blocks, so browser names stay out of Node files (where `const crypto = require('crypto')`
+  // would otherwise count as a redeclaration), and app.js does not get its own names as globals.
+  { files: ['**/*.js'], ignores: nodeFiles, languageOptions: { globals: { ...browser, ...page } } },
+  { files: ['**/*.js'], ignores: [...nodeFiles, 'app.js'], languageOptions: { globals: fromApp } },
+  { files: nodeFiles, languageOptions: { globals: node } },
+  // Callbacks passed to page.evaluate run in the app window.
+  { files: ['tests/e2e/**/*.js'], languageOptions: { globals: browser } }
 ];
