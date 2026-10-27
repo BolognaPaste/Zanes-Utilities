@@ -1,16 +1,4 @@
 'use strict';
-// Looks up the newest GPU driver published by each manufacturer and compares it with what is
-// installed. Network access is injected (ctx.get).
-//
-// Sources:
-//   NVIDIA  public driver-lookup service used by nvidia.com/Download (XML lists + JSON query)
-//   AMD     Adrenalin release-notes pages (no index or feed exists, so recent URLs are probed)
-//   Intel   version text on the download / support pages (graphics, Wi-Fi, Bluetooth, chipset)
-//   AMD     also the Ryzen chipset driver page
-//   Other   Realtek, Qualcomm, MediaTek, Broadcom and the like publish no version feed, so those
-//           devices are listed with a link to the PC maker's driver page instead
-// The requests are few, sequential and use an honest User-Agent. If a site refuses them the
-// result says so and links to the manufacturer's page; nothing tries to get around blocking.
 
 const NV_HOST = 'https://gfwsl.geforce.com';
 const NV_LOOKUP = 'https://www.nvidia.com/Download/API/lookupValueSearch.aspx';
@@ -43,7 +31,6 @@ function vendorOf(g) {
   return '';
 }
 
-// ---------- NVIDIA ----------
 function parseLookup(xml) {
   const out = [];
   const rx = /<LookupValue([^>]*)>\s*<Name>([^<]*)<\/Name>\s*<Value>(\d+)<\/Value>/g;
@@ -55,7 +42,6 @@ function parseLookup(xml) {
   return out;
 }
 
-// Turns "NVIDIA GeForce RTX 3060 Laptop GPU" into the series names NVIDIA's list uses.
 function nvidiaSeries(name) {
   if (/quadro|tesla|rtx\s*a\d|rtx\s*pro|\bada\b|\bt\d{3,4}\b/i.test(name)) return null;
   const mobile = /laptop|notebook|max-q|mobile/i.test(name) || /\b\d{3,4}M\b/i.test(name);
@@ -78,7 +64,6 @@ function nvidiaSeries(name) {
   return mobile ? ['GeForce ' + h + 'M Series (Notebooks)'] : ['GeForce ' + h + ' Series'];
 }
 
-// Windows reports 32.0.15.8157 for GeForce driver 581.57: the last five digits.
 function nvidiaInstalled(ver) {
   const d = String(ver || '').replace(/\D/g, '');
   return d.length >= 5 ? d.slice(-5, -2) + '.' + d.slice(-2) : '';
@@ -105,7 +90,7 @@ async function checkNvidia(gpu, ctx) {
     const want = (ctx.build || 0) >= 22000 ? 'windows 11' : 'windows 10 64-bit';
     const o = parseLookup(await ctx.get(NV_LOOKUP + '?TypeID=4')).find(x => norm(x.name) === want);
     if (o) osid = o.value;
-  } catch { /* the built-in ids above are fine */ }
+  } catch { }
 
   const url = NV_HOST + '/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup' +
     '&psid=' + hit.value + '&osID=' + osid + '&languageCode=1033&beta=0&isWHQL=1&dltype=-1&dch=1&upCRD=0&qnf=0&sort1=0&numberOfResults=1';
@@ -130,7 +115,6 @@ async function checkNvidia(gpu, ctx) {
   };
 }
 
-// ---------- AMD ----------
 function parseAmdNotes(html) {
   const t = text(html);
   const versions = [...t.matchAll(/Driver Store Version\s*(\d+\.\d+\.\d+\.\d+)/gi)].map(m => m[1]);
@@ -159,7 +143,6 @@ async function checkAmd(gpu, ctx) {
   }
   if (!found) return { ...base, status: 'unknown', note: 'Could not read AMD\'s recent release notes. AMD\'s site may block automated requests, so open the page instead.' };
 
-  // AMD ships separate packages per GPU generation; the leading digits of the third number tell them apart.
   const branch = v => (v.split('.')[2] || '').slice(0, 2);
   const mine = found.versions.filter(v => branch(v) === branch(gpu.ver));
   const page = found.url;
@@ -173,7 +156,6 @@ async function checkAmd(gpu, ctx) {
   };
 }
 
-// ---------- Intel ----------
 async function checkIntel(gpu, ctx) {
   const arc = /\barc\b/i.test(gpu.name);
   const url = arc ? INTEL_ARC : INTEL_XE;
@@ -193,7 +175,6 @@ async function checkIntel(gpu, ctx) {
 }
 
 
-// ---------- other components: Wi-Fi, Bluetooth, chipset, PC maker ----------
 const INTEL_WIFI = 'https://www.intel.com/content/www/us/en/download/19351/intel-wireless-wi-fi-drivers-for-windows-10-and-windows-11.html';
 const INTEL_BT = 'https://www.intel.com/content/www/us/en/download/18649/intel-wireless-bluetooth-drivers-for-windows-10-and-windows-11.html';
 const INTEL_CHIPSET = 'https://www.intel.com/content/www/us/en/download/19347/chipset-inf-utility.html';
@@ -205,8 +186,6 @@ const isAmd = d => /\bamd\b|advanced micro/i.test((d.mfr || '') + ' ' + (d.prov 
 const major = v => Number(String(v).split('.')[0]) || 0;
 const AMD_CHIPSET_DEV = /amd (psp|gpio|i2c|uart|smbus|pci|pmf|sfh|iov|usb4|micropep|s0i3|wireless button|3d v-cache|hsmp|ams mailbox|ppm)/i;
 
-// Intel prints "driver version 24.70.0.3 for AX211, BE200 ..."; when the adapter's model appears
-// next to a version, that version is the one meant for it.
 function intelVersions(html, model) {
   const t = text(html), out = [];
   for (const m of t.matchAll(/driver version\s*:?\s*(\d+\.\d+\.\d+\.\d+)([^]{0,400})/gi)) out.push({ v: m[1], near: m[2].replace(/\s+/g, '').toLowerCase() });
@@ -221,7 +200,7 @@ async function checkIntelWireless(d, wifi, ctx) {
   const base = { vendor: 'Intel', category: wifi ? 'Wi-Fi' : 'Bluetooth', gpu: d.name, installed: d.ver, page: url, source: 'Intel download center' };
   const model = (/\b(BE\d{3}|AX\d{3}|AC[- ]?\d{4}|9\d{3}|8\d{3}|7\d{3}|3165|3168)\b/i.exec(d.name) || [])[1] || '';
   const all = intelVersions(await ctx.get(url), model);
-  const newLine = major(d.ver) >= 20;               // 19.x is Intel's separate line for old adapters
+  const newLine = major(d.ver) >= 20;
   const same = all.filter(v => (major(v) >= 20) === newLine);
   if (!same.length) return { ...base, status: 'unknown', note: 'Could not find a version for this adapter on Intel\'s page. Open it to check manually.' };
   const latest = same.sort(cmp)[same.length - 1];
@@ -253,7 +232,6 @@ async function checkAmdChipset(app, ctx) {
 
 const JUNK = /system manufacturer|to be filled|default string|o\.e\.m|^$/i;
 
-// Only links: nothing is fetched from these sites.
 function oemLink(pc) {
   const maker = norm(JUNK.test(pc.mfr || '') ? pc.prov : pc.mfr);
   const tag = String(pc.ver || '').trim();
@@ -275,7 +253,6 @@ async function checkComponents(devs, ctx) {
   const out = [], used = new Set(), done = new Set();
   const drv = devs.filter(d => d.k === 'drv'), apps = devs.filter(d => d.k === 'app'), pc = devs.find(d => d.k === 'pc');
 
-  // Runs one check, at most once per key, and turns a failure into a card instead of an error.
   async function run(key, label, fn) {
     if (done.has(key)) return;
     done.add(key);
@@ -298,7 +275,7 @@ async function checkComponents(devs, ctx) {
     } else if (isAmd(d) && AMD_CHIPSET_DEV.test(d.name)) {
       used.add(d); amdChipsetSeen = true;
     } else if (/^display$/i.test(cls) || (/display audio|hdmi audio|high definition audio/i.test(d.name) && /nvidia|amd|intel/i.test(d.mfr + ' ' + d.prov))) {
-      used.add(d);   // updated together with the graphics driver
+      used.add(d);
     }
   }
 
@@ -307,7 +284,6 @@ async function checkComponents(devs, ctx) {
   if (intelApp) await run('intel-chipset', 'Intel', () => checkIntelChipset(intelApp, ctx));
   if (amdApp || amdChipsetSeen) await run('amd-chipset', 'AMD', () => checkAmdChipset(amdApp, ctx));
 
-  // Everything else: group by maker; there is no feed to compare against.
   const groups = new Map();
   for (const d of drv) {
     if (used.has(d)) continue;
@@ -340,7 +316,6 @@ async function checkComponents(devs, ctx) {
   return out;
 }
 
-// ---------- entry point ----------
 async function checkAll(gpus, ctx) {
   const seen = new Set(), out = [];
   for (const g of gpus) {
@@ -362,9 +337,8 @@ async function checkAll(gpus, ctx) {
   return out.map(x => ({ category: 'Graphics', ...x }));
 }
 
-const MAX_DOWNLOAD = 4 * 1024 * 1024 * 1024;   // GeForce installers are about 1 GB; stop anything far beyond that
+const MAX_DOWNLOAD = 4 * 1024 * 1024 * 1024;
 
-// Streams a URL to disk. fetchFn is fetch-compatible (Electron's net.fetch in the app).
 async function downloadFile(fetchFn, url, dest, onProgress) {
   const fs = require('fs');
   const part = dest + '.part';
@@ -396,4 +370,4 @@ async function downloadFile(fetchFn, url, dest, onProgress) {
   return got;
 }
 
-module.exports = { checkAll, checkComponents, downloadFile, NV_DL };
+module.exports = { checkAll, checkComponents, downloadFile, NV_DL, _test: { cmp, vendorOf, parseLookup, nvidiaSeries, major } };

@@ -1,0 +1,13 @@
+package-lock.json
+node_modules/
+bg.jpg
+index.html
+scrcpy/
+cloudflared/
+mumble/
+# Legacy renderer files are compact on purpose and are replaced in Phase 1.
+app.js
+*-ui.js
+xml-deep.js
+efs-shim.js
+chat.css

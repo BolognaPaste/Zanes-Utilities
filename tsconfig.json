@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "target": "ES2023",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "strict": false
+  },
+  "include": ["logger.js", "diagnostics.js", "scripts/**/*.js", "test/**/*.js"],
+  "exclude": ["node_modules"]
+}

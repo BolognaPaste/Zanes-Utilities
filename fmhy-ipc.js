@@ -1,20 +1,14 @@
-// FMHY backend: shows fmhy.net inside the app window, on the FMHY page.
-// The site runs in a WebContentsView laid over the page's placeholder area (the page reports where
-// that area is). The view has no preload script, its own storage, refuses every permission except
-// fullscreen, and can only navigate within fmhy.net. Links to other sites open in an in-app pop-out
-// window (the same kind the custom buttons use, with ads and trackers blocked).
 const FMHY_HOST = /^([a-z0-9-]+\.)*fmhy\.net$/i;
 const HOME = 'https://fmhy.net/';
 const adblock = require('./adblock');
 
 function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWindow, app }) {
   let view = null, attached = false;
-  const popups = new Map();   // button slot (or 'link') -> its pop-out window
-  let blockPref = true;       // whether the ad blocker is on (the Settings switch); the page reports it
+  const popups = new Map();
+  let blockPref = true;
 
   const inside = u => { try { const x = new URL(u); return x.protocol === 'https:' && FMHY_HOST.test(x.hostname); } catch { return false; } };
   const out = u => { if (/^https?:/i.test(u)) shell.openExternal(u); };
-  // A link on fmhy.net that leads to another site: opens in the shared 'link' pop-out window inside the app.
   const pop = u => { const n = web(u); if (n) openPopup(n, 'link', blockPref).catch(() => {}); };
   const rect = b => {
     const n = k => Math.max(0, Math.round(Number(b && b[k]) || 0));
@@ -36,7 +30,6 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     wc.loadURL(HOME);
   }
 
-  // Put the site on screen at the given rectangle (created and loaded the first time).
   ipcMain.handle('fmhy:show', (_e, b) => {
     const win = getWin();
     if (!win || win.isDestroyed()) return { ok: false, error: 'The app window is not available.' };
@@ -49,7 +42,6 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
 
   ipcMain.handle('fmhy:bounds', (_e, b) => { if (view && attached) view.setBounds(rect(b)); return true; });
 
-  // Take the site off screen when another page is shown. It stays loaded, so coming back keeps your place.
   ipcMain.handle('fmhy:hide', () => {
     const win = getWin();
     if (view && attached && win && !win.isDestroyed()) win.contentView.removeChildView(view);
@@ -57,16 +49,8 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     return true;
   });
 
-  // Pop-out page for the four custom buttons: a separate window on top of the app, with its own storage, no
-  // preload bridge and every permission refused except fullscreen. Only http(s) addresses are loaded, in the
-  // pop-out itself; links the page opens stay in the same pop-out. One window per button; pressing the
-  // button again brings its window back to the front. Ads and trackers are blocked in these windows (adblock.js).
   const web = u => { try { const x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:' ? x.href : null; } catch { return null; } };
 
-  // The pop-out windows share one on-disk storage area ('persist:fmhy-popup'), so cookies, local storage and
-  // logins stay put between launches. Login cookies are very often "session" cookies (no expiry), which
-  // Chromium throws away when the app closes; so every session cookie is re-saved with an expiry date a year out.
-  // Changes are also written to disk right away instead of waiting for the app to close.
   const KEEP_MS = 365 * 24 * 3600 * 1000;
   let flushTimer = 0, popSes = null, blocker = null;
   const flush = () => { if (!popSes) return; try { popSes.cookies.flushStore().catch(() => {}); popSes.flushStorageData(); } catch {} };
@@ -80,7 +64,7 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     ses.setPermissionCheckHandler((wc, perm) => perm === 'fullscreen');
     ses.cookies.on('changed', (_e, c, cause, removed) => {
       if (removed) { flushSoon(); return; }
-      if (!c.session) { flushSoon(); return; }          // already has an expiry: Chromium saves it itself
+      if (!c.session) { flushSoon(); return; }
       const host = String(c.domain || '').replace(/^\./, '');
       if (!host) return;
       const jar = {
@@ -88,24 +72,19 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
         name: c.name, value: c.value, path: c.path || '/', secure: c.secure, httpOnly: c.httpOnly,
         sameSite: c.sameSite, expirationDate: (Date.now() + KEEP_MS) / 1000
       };
-      if (!c.hostOnly) jar.domain = c.domain;           // host-only cookies (and __Host- ones) must not carry a domain
+      if (!c.hostOnly) jar.domain = c.domain;
       ses.cookies.set(jar).then(flushSoon, () => {});
     });
     if (app && app.on) app.on('before-quit', flush);
     return ses;
   }
 
-  // Warm-up: the FMHY page asks for this when it opens, so the filter lists are ready before a button is pressed.
   ipcMain.handle('fmhy:warm', () => { popupSession(); blocker.warm(); return true; });
 
-  // Settings page ("Ad blocker"): what the blocker has loaded and cached, a switch that takes effect straight
-  // away, and a button that downloads the lists again.
   ipcMain.handle('fmhy:adstatus', async () => { popupSession(); return blocker.status(); });
   ipcMain.handle('fmhy:adset', async (_e, on) => { popupSession(); blockPref = !!on; await blocker.set(!!on, 1); return blocker.status(); });
   ipcMain.handle('fmhy:adrefresh', async () => { popupSession(); await blocker.refresh(); return blocker.status(); });
 
-  // Opens `rawUrl` in a pop-out window. `key` is the button slot (0 to 3), 'link' for pages opened from fmhy.net,
-  // or null for a window of its own. A window that already exists for the key is reused and brought to the front.
   async function openPopup(rawUrl, key, block) {
     const win = getWin();
     if (!win || win.isDestroyed()) return { ok: false, error: 'The app window is not available.' };
@@ -113,9 +92,6 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     if (!url) return { ok: false, error: 'That is not a valid web address.' };
     blockPref = !!block;
 
-    // Ad / tracker blocking (uBlock Origin filter lists) is on unless the Settings switch turned it off. It is
-    // switched on before the page is requested, so the very first request is already filtered. A problem here
-    // never stops the page from opening; it is reported back so the app can say so.
     popupSession();
     let note = '';
     try {
@@ -146,10 +122,9 @@ function register(ipcMain, getWin, { session, shell, WebContentsView, BrowserWin
     p.setMenuBarVisibility(false);
     const wc = p.webContents;
     wc.setWindowOpenHandler(({ url: u }) => { const n = web(u); if (n) wc.loadURL(n).catch(() => {}); return { action: 'deny' }; });
-    const only = (e, u) => { if (!web(u)) e.preventDefault(); };   // no file:, steam: or other schemes
+    const only = (e, u) => { if (!web(u)) e.preventDefault(); };
     wc.on('will-navigate', only);
     wc.on('will-redirect', only);
-    // Back / forward: Alt+Left, Alt+Right and the mouse back / forward buttons.
     const go = d => { const h = wc.navigationHistory; if (d < 0 ? h.canGoBack() : h.canGoForward()) { d < 0 ? h.goBack() : h.goForward(); return true; } return false; };
     wc.on('before-input-event', (e, i) => {
       if (i.type === 'keyDown' && i.alt && !i.control && !i.shift && (i.key === 'ArrowLeft' || i.key === 'ArrowRight') && go(i.key === 'ArrowLeft' ? -1 : 1)) e.preventDefault();

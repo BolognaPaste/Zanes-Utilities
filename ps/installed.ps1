@@ -1,4 +1,3 @@
-# Lists the drivers currently installed. Needs no admin rights.
 $ErrorActionPreference = 'SilentlyContinue'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8

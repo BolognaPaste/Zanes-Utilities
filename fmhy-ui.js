@@ -1,19 +1,11 @@
-// FMHY page: fmhy.net shown inside the page area, with back / forward / home buttons and four
-// custom quick-link buttons (set on the Settings page) that open pop-out pages with ads and trackers blocked.
-// Links on the fmhy.net pages that lead to other sites open in the same kind of pop-out window.
-// Talks to fmhy-ipc.js through window.fmhy (see preload.js). Uses $ from index.html.
-// The site is drawn by the main process over #fm-host, so this file only reports where that box is.
 (function () {
   'use strict';
   const host = $('#fm-host'), na = $('#fm-na'), bar = $('#fm-bar'), quick = $('#fm-quick');
   if (!host) return;
   const api = window.fmhy;
 
-  // ---- Four quick-link buttons (top right of the page). Name + link are set on the Settings page and kept
-  // in localStorage. Clicking a filled button opens its link in a pop-out window inside the app; an empty
-  // button takes you to Settings. Only http(s) links are accepted.
   const KEY = 'zu-fmhy-quick', N = 4;
-  const clean = raw => {                 // '' = empty, null = not a usable web address, otherwise the full URL
+  const clean = raw => {
     let t = String(raw || '').trim();
     if (!t) return '';
     if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(t)) t = 'https://' + t;
@@ -29,9 +21,8 @@
   };
   let cfg = load();
 
-  // Ad / tracker blocking in the pop-out pages (uBlock Origin filter lists). On unless switched off in Settings.
   const BKEY = 'zu-fmhy-block';
-  const warm = () => { try { const p = api && api.warm && api.warm(); if (p && p.catch) p.catch(() => {}); } catch {} };   // refused while the app is locked; that is fine
+  const warm = () => { try { const p = api && api.warm && api.warm(); if (p && p.catch) p.catch(() => {}); } catch {} };
   const blockOn = () => { try { return localStorage.getItem(BKEY) !== '0'; } catch { return true; } };
   const hostName = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 
@@ -60,7 +51,6 @@
     } catch { toast('Could not open that page.'); }
   });
 
-  // Settings page: the form for the four buttons.
   const save = $('#fq-save'), msg = $('#fq-msg');
   const fill = () => cfg.forEach((c, i) => { const n = $('#fq-n' + i), u = $('#fq-u' + i); if (n) n.value = c.name; if (u) u.value = c.url; });
   const say = (t, bad) => { if (msg) { msg.textContent = t; msg.className = bad ? 'err' : 'fx'; } };
@@ -82,8 +72,6 @@
     document.querySelectorAll('.fq-row input').forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') saveForm(); }));
     document.querySelectorAll('.fq-row input').forEach(inp => inp.addEventListener('input', () => say('')));
   }
-  // ---- Settings page: Ad blocker section. Shows what the blocker has really read and saved, and has the
-  // on / off switch and the "update now" button. The numbers come from the main process (adblock.js).
   const abOn = $('#ab-on'), abBox = $('#ab-box'), abHead = $('#ab-head'), abSub = $('#ab-sub'), abLists = $('#ab-lists'), abUpd = $('#ab-upd'), abMsg = $('#ab-msg');
   const abSay = (t, bad) => { if (abMsg) { abMsg.textContent = t || ''; abMsg.className = bad ? 'err' : 'fx'; } };
   const fmtSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
@@ -152,7 +140,10 @@
       abRefresh();
     }
   }
+
   fill(); renderQuick();
+
+  if (api && api.warm && blockOn()) warm();
 
   if (!api || !api.show) {
     na.hidden = false; bar.hidden = true; host.hidden = true; if (quick) quick.hidden = true;
@@ -173,14 +164,14 @@
 
   window.fmEnter = () => {
     on = true; last = '';
-    if (blockOn()) warm();   // start loading the filter lists now, so the first button press is already covered
+    if (blockOn()) warm();
     requestAnimationFrame(() => {
       if (!on) return;
       const b = box(); last = [b.x, b.y, b.width, b.height].join();
-      api.show(Object.assign({ block: blockOn() }, b));   // also tells the main process whether links from the site get ad blocking
+      api.show(Object.assign({ block: blockOn() }, b));
     });
     if (window.ResizeObserver && !ro) { ro = new ResizeObserver(sync); ro.observe(host); }
-    clearInterval(timer); timer = setInterval(sync, 300);   // also catches the menu opening or closing
+    clearInterval(timer); timer = setInterval(sync, 300);
   };
   window.fmPause = () => {
     if (!on) return;

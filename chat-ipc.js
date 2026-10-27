@@ -1,9 +1,3 @@
-// Chat backend for the app window (the "Beta Chat/VoiceChat" page). It owns the one ChatHub (chat-core.js) and the optional
-// network server (chat-server.js), and gives the page a small set of requests.
-//
-// The page is the host: it always chats as "host" and is the only one who can add or delete channels, kick people,
-// set the join password or start and stop the network server. Those requests never go over the network at all.
-// Every request is checked again in chat-core.js, so the page cannot send anything the rules would refuse.
 const fs = require('fs');
 const secure = require('./secure-store');
 const path = require('path');
@@ -19,29 +13,23 @@ function register(ipc, getWin, { app, dialog }) {
   const server = new ChatServer(hub, { root: __dirname });
   const tunnel = new Tunnel(() => server.setTunnel(null));
 
-  // Where cloudflared.exe was chosen from (kept in the app's data folder), and the folders it is looked for in.
   const binFile = path.join(dir, 'tunnel.json');
   let picked = '';
   try { const b = JSON.parse(secure.readTextSync(binFile)); if (b && looksRight(b.bin)) picked = b.bin; } catch {}
   const unpacked = __dirname.replace(/app\.asar([\\/]|$)/, 'app.asar.unpacked$1');
   const findBin = () => findBinary(picked, [path.join(unpacked, 'cloudflared'), path.join(process.resourcesPath || '', 'cloudflared'), path.join(app.getPath('userData'), 'cloudflared')]);
 
-  // Live events go to the app window. While the app is locked nothing is pushed to the page; it asks for a fresh
-  // copy when it is unlocked (see test-ui.js).
   hub.subscribe(HOST, ev => {
     const w = getWin();
     if (w && !appLock.isLocked()) w.webContents.send('chat:event', ev);
   });
 
-  // Joining somebody else's server from this app (see chat-remote.js). Like the local chat, nothing is pushed to the
-  // page while the app is locked; it asks for a fresh copy when it is unlocked.
   const remote = new RemoteClient(ev => {
     const w = getWin();
     if (w && !appLock.isLocked()) w.webContents.send('chat:remoteEvent', ev);
   }, path.join(dir, 'remote.json'));
 
   const str = v => (typeof v === 'string' ? v : '');
-  // Every handler answers { ok: true, v: value } or { ok: false, error: message }.
   const h = (channel, fn) => ipc.handle(channel, async (_e, a) => {
     try { return { ok: true, v: await fn(a && typeof a === 'object' ? a : {}) }; }
     catch (err) { return { ok: false, error: err instanceof ChatError || (err && err.message) ? err.message : 'Something went wrong.' }; }
@@ -77,11 +65,9 @@ function register(ipc, getWin, { app, dialog }) {
     if (a.serverName != null) hub.setServerName(a.serverName);
     if (a.hostName != null) hub.setHostName(a.hostName);
     if (a.password === '' && tunnel.state !== 'off') throw new ChatError('Close the internet link before removing the password. The link is public, so it needs one.');
-    if (a.password != null) hub.setPassword(a.password);      // an empty string removes the password
+    if (a.password != null) hub.setPassword(a.password);
     return settings();
   });
-  // The internet link. It points at the server on this PC, so the server has to be running, and because the address is
-  // public the join password is required (anyone who finds the address can still reach the sign-in page).
   async function openLink() {
     if (!server.running()) throw new ChatError('Start the server first.');
     if (!hub.hasPassword()) throw new ChatError('Set a join password first. The internet link is public, so a password is required.');
@@ -94,7 +80,6 @@ function register(ipc, getWin, { app, dialog }) {
     const port = Number(a.port);
     hub.setNet(port, !!a.lan, !!a.tunnel);
     await server.start(port, !!a.lan);
-    // A problem with the link must not undo a working local server; the error is shown from settings().tunnel.
     if (a.tunnel) { try { await openLink(); } catch (e) { if (tunnel.state !== 'error') tunnel.fail(e.message); } }
     return settings();
   });

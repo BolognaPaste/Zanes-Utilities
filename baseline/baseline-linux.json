@@ -1,0 +1,31 @@
+{
+  "generated": "2026-10-16T05:08:07.418Z",
+  "node": "v22.22.2",
+  "platform": "linux",
+  "arch": "x64",
+  "moduleLoadMs": {
+    "chat-core": 6.3,
+    "chat-server": 9.3,
+    "chat-tunnel": 3.8,
+    "chat-remote": 6.8,
+    "vault-ipc": 6.8,
+    "shred-ipc": 5.8,
+    "vendor-sources": 0.9,
+    "ssh-sftp": 1.8,
+    "optimizer-ipc": 6.7,
+    "lock-ipc": 3.4,
+    "secure-store": 4.8,
+    "keystore": 3.5,
+    "adblock": 4.3,
+    "logger": 0.7,
+    "diagnostics": 1.2
+  },
+  "powershellSpawn": {
+    "skipped": "not Windows"
+  },
+  "source": {
+    "files": 50,
+    "totalLines": 11663,
+    "indexHtmlBytes": 119925
+  }
+}

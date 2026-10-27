@@ -1,9 +1,7 @@
-// Main page script (was an inline <script> in index.html; moved out so the Content-Security-Policy can forbid inline scripts).
 const $=s=>document.querySelector(s),out=$('#out'),dz=$('#dz');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const R={H:'Most likely',M:'Possible',L:'Contributing'},O={H:0,M:1,L:2};
 
-/* Windows exception codes: [name, meaning, fix] */
 const E={
 C0000005:['Access violation','The game read or wrote memory it was not allowed to touch (bad pointer, freed object, or corrupt data).','Verify game files, disable mods and overlays, update GPU drivers. If it happens in several games, test your RAM.'],
 C000001D:['Illegal instruction','The CPU met an instruction it cannot run. Usually a build needing newer CPU features, or corrupted code in memory.','Check the CPU requirements, undo CPU overclock/undervolt, verify game files.'],
@@ -28,7 +26,6 @@ E0434352:['Unhandled .NET exception','A managed (.NET/Unity/Mono) exception went
 '887A0020':['GPU driver internal error','The graphics driver reported an internal error.','Clean-install the GPU driver; try a different driver version.']
 };
 
-/* Module rules. k: gpu | ov (overlay/anti-cheat/injector) | rt (runtime/system) | au (audio) */
 const M=[
 {r:/nvwgf2um|nvlddmkm|nvd3dum|nvoglv|nvcuda/i,k:'gpu',t:'Crash inside the NVIDIA graphics driver',w:'The faulting code is in the NVIDIA driver, so the driver, GPU stability, or a bad request from the game is involved.',x:'Clean-install the latest driver (DDU in safe mode), remove GPU overclocks, check temperatures.'},
 {r:/atidxx|amdxx|aticfx|amdvlk|atio6axx|amdgfx/i,k:'gpu',t:'Crash inside the AMD graphics driver',w:'The faulting code is in the AMD driver, so the driver, GPU stability, or a bad request from the game is involved.',x:'Clean-install the latest driver, remove GPU overclocks and undervolts, check temperatures.'},
@@ -39,7 +36,6 @@ const M=[
 {r:/^(ntdll|kernelbase|kernel32|ucrtbase|msvcrt|vcruntime\d*|msvcp\d*|combase|rpcrt4)\.dll$/i,k:'rt',t:'Crash reported by a Windows or C++ runtime library',w:'The failure surfaced inside a system library, which usually means the game passed it bad data. The real culprit is further up the call stack, so the exception code matters more here.',x:'Rely on the exception finding above, and check the game log for the step before the crash.'}
 ];
 
-/* Text-log rules: [regex, severity, title, why, fix] */
 const T=[
 [/out of memory|outofmemoryerror|bad_alloc|not enough memory|insufficient memory|VK_ERROR_OUT_OF_(HOST|DEVICE)_MEMORY|failed to allocate/i,'H','Out of memory','The game or GPU ran out of memory.','Close other apps, raise the page file, lower texture quality and resolution, remove memory-heavy mods.'],
 [/DXGI_ERROR_DEVICE_(REMOVED|HUNG|RESET)|device (was )?removed|gpu (crash|hang)|VK_ERROR_DEVICE_LOST|display driver stopped responding|device lost|nvlddmkm/i,'H','GPU crash or driver reset','The graphics card or driver stopped responding and was reset.','Clean-install the GPU driver, lower overclocks, check temperatures and PSU headroom.'],
@@ -177,7 +173,6 @@ document.querySelectorAll('.nv').forEach(b=>b.onclick=()=>{
  document.querySelector('main').classList.toggle('wide',b.dataset.p==='next'||b.dataset.p==='media'||b.dataset.p==='games'||b.dataset.p==='fmhy'||b.dataset.p==='vault'||b.dataset.p==='phone'||b.dataset.p==='ssh'||b.dataset.p==='shred'||b.dataset.p==='crash'||b.dataset.p==='hist'||b.dataset.p==='opt'||b.dataset.p==='drv'||b.dataset.p==='settings'||b.dataset.p==='test'||b.dataset.p==='home');document.querySelector('main').classList.remove('full');document.querySelector('main').classList.toggle('fmw',b.dataset.p==='fmhy'||b.dataset.p==='vault');if(b.dataset.p==='fmhy'){if(window.fmEnter)fmEnter()}else if(window.fmPause)fmPause();if(b.dataset.p==='media')jopen();else if(window.lvPause)lvPause();if(b.dataset.p==='games'){if(window.gmEnter)gmEnter()}else if(window.gmPause)gmPause();if(b.dataset.p==='phone'){if(window.phEnter)phEnter()}else if(window.phPause)phPause();closeMenu();
 });
 
-/* Driver updater: sidebar buttons scroll the main pane to a section */
 document.querySelectorAll('#p-drv [data-j]').forEach(b=>b.onclick=()=>{
  const t=document.getElementById(b.dataset.j);if(!t)return;
  if(t.tagName==='DETAILS')t.open=true;
@@ -187,7 +182,6 @@ document.querySelectorAll('#p-drv [data-j]').forEach(b=>b.onclick=()=>{
 
 document.querySelectorAll('[data-go]').forEach(c=>c.onclick=()=>document.querySelector('.nv[data-p="'+c.dataset.go+'"]').click());
 
-/* Menu dropdowns: remember which ones are open (the Game tools key is kept from the old single dropdown) */
 (()=>{
  document.querySelectorAll('nav .ng').forEach(g=>{
   const K='gca-nav-'+g.id.replace(/^ng-/,'');
@@ -196,7 +190,6 @@ document.querySelectorAll('[data-go]').forEach(c=>c.onclick=()=>document.querySe
  });
 })();
 
-/* Collapsible menu */
 (()=>{
  const b=$('#ntg'),K='gca-nav';
  const set=c=>{document.body.classList.toggle('nc',c);b.setAttribute('aria-expanded',String(!c));b.textContent=c?'☰':'☰ Zane\'s Utilities';try{localStorage.setItem(K,c?'1':'0')}catch(e){}};
@@ -204,7 +197,6 @@ document.querySelectorAll('[data-go]').forEach(c=>c.onclick=()=>document.querySe
  set(c);b.onclick=()=>set(!document.body.classList.contains('nc'));
 })();
 
-/* Past scans: saved in this browser's localStorage */
 const HK='gca-history';let hfail=false;
 const hload=()=>{try{return JSON.parse(localStorage.getItem(HK))||[]}catch(e){return[]}};
 const hsave=a=>{try{localStorage.setItem(HK,JSON.stringify(a.slice(0,30)));hfail=false}catch(e){hfail=true}homeRender()};
@@ -233,7 +225,6 @@ function cmp(){
  const keys=[...new Set([...x.facts,...y.facts].map(f=>f[0]))];
  c.innerHTML='<h2>Comparison</h2><p><b>'+v+'</b></p><div class="tw"><table class="ct"><tr><th></th><th>'+lab(x,'A')+'</th><th>'+lab(y,'B')+'</th></tr>'+keys.map(k=>{const p=g(x,k)||'-',q=g(y,k)||'-';return '<tr'+(p===q?'':' class="df"')+'><th>'+esc(k)+'</th><td>'+esc(p)+'</td><td>'+esc(q)+'</td></tr>'}).join('')+'</table></div><h3>Causes in both</h3>'+list(both,mx)+'<h3>Only in A</h3>'+list(ox,mx)+'<h3>Only in B</h3>'+list(oy,my);
 }
-/* Game library: reads launcher manifest files, kept in this browser */
 const LK='gca-library';
 let lib=(()=>{try{return JSON.parse(localStorage.getItem(LK))||[]}catch(e){return[]}})();
 const lsave=()=>{try{localStorage.setItem(LK,JSON.stringify(lib))}catch(e){}};
@@ -344,7 +335,6 @@ window.addEventListener('scroll',closeMenu,true);
 $('#dl').addEventListener('click',e=>{if(e.target.id==='dl'||e.target.closest('[data-x]'))closeDlg()});
 $('#gf').onchange=e=>{filt=e.target.value;lrender()};
 $('#gsort').onchange=e=>{sortBy=e.target.value;lrender()};
-/* Delete all data (Home page) */
 async function wipeIdb(){
  let names=[];
  try{if(indexedDB.databases)names=(await indexedDB.databases()).map(d=>d.name).filter(Boolean)}catch(e){}
@@ -374,7 +364,6 @@ $('#fe').onchange=e=>{const f=[...e.target.files];e.target.value='';if(f.length)
 $('#gq').oninput=()=>lrender();
 let cg;$('#gx').onclick=e=>{const b=e.target;if(b.dataset.a){lib=[];lsave();delete b.dataset.a;b.textContent='Clear library';clearTimeout(cg);lrender()}else{b.dataset.a=1;b.textContent='Click again to confirm';cg=setTimeout(()=>{delete b.dataset.a;b.textContent='Clear library'},4000)}};
 lrender();
-/* Find games automatically: remembers the folders you pick (File System Access API, Chrome/Edge) */
 const HDB='gca-handles',DEF={Steam:'C:\\Program Files (x86)\\Steam\\steamapps',Epic:'C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests'};
 const canDir=()=>typeof window.showDirectoryPicker==='function';
 const noDir=()=>{
@@ -397,7 +386,6 @@ async function scanFolder(h,store){
  const dirs=[h],paths=store==='Steam'?[['steamapps']]:[['Data','Manifests'],['EpicGamesLauncher','Data','Manifests'],['Manifests']];
  for(const p of paths){try{dirs.push(await sub(h,p))}catch(e){}}
  const re=store==='Steam'?/^appmanifest_\d+\.acf$/i:/\.item$/i,parse=store==='Steam'?pSteam:pEpic,games=[];let libs=[];
- // Every manifest in a folder is read at the same time instead of one after another (same results, same order).
  for(const d of dirs){
   const jobs=[];
   for await(const[n,e]of d.entries()){
@@ -434,11 +422,9 @@ async function findGames(store,o={}){
  const ex=[...new Set(libs)];
  am('Found '+found.length+' '+store+' game'+(found.length===1?'':'s')+' in '+good+' folder'+(good===1?'':'s')+'.'+(store==='Steam'&&ex.length>good?' Steam lists '+ex.length+' library folders ('+ex.join(', ')+'); use "Add another Steam folder" to include the rest.':''));
 }
-/* Custom games: .exe files added by hand. A page cannot start programs, so Play builds a .bat launcher. */
 const tidy=n=>{let t=n.replace(/_+/g,' ').replace(/[ .-]v?\d+(\.\d+)+$/i,'');if(!/\s/.test(t)&&(t.match(/\./g)||[]).length>0)t=t.replace(/\./g,' ');return t.replace(/\s+/g,' ').trim()||n};
 const exeName=p=>p.split(/[\\/]/).pop();
 const exeDir=p=>/[\\/]/.test(p)?p.replace(/[\\/][^\\/]*$/,''):'';
-// Desktop app: native dialog that returns full paths. Plain browser: a file input, which only gives names.
 async function pickExes(){
  if(window.efs&&typeof window.efs.pickExe==='function'){
   const ps=await window.efs.pickExe();
@@ -474,7 +460,6 @@ async function addExes(){
  };
  $('#axo').onclick=ok;ins.forEach(i=>{i.onkeydown=e=>{if(e.key==='Enter')ok()}});
 }
-// Asks for the full Windows path of one game's .exe. play=1 builds the launcher right after saving.
 function setExe(x,play){
  dialog('Game location','<p class="fx">Enter the full Windows path of the .exe for "'+esc(x.name)+'" (for example D:\\Games\\MyGame\\game.exe). A browser cannot read it from the file picker, and the launcher needs it to start the game.</p><input type="text" id="dpth" placeholder="D:\\Games\\MyGame\\game.exe" aria-label="Full path of the .exe" autocomplete="off" spellcheck="false" value="'+esc(x.path||'')+'"><div class="bar"><button type="button" id="dpo">Save</button><button type="button" class="alt" data-x>Cancel</button></div>');
  const go=()=>{
@@ -497,7 +482,6 @@ $('#afe').onclick=()=>findGames('Epic',{ask:1});
 $('#afs2').onclick=()=>findGames('Steam',{ask:1,add:1});
 $('#afe2').onclick=()=>findGames('Epic',{ask:1,add:1});
 $('#aff').onclick=async()=>{await hput('Steam',[]);await hput('Epic',[]);am('Saved folders cleared.')};
-// The saved folders are rescanned a moment after launch, not while the window is still opening.
 setTimeout(async()=>{if(!canDir()){const m=$('#gm');m.textContent=noDir();m.hidden=false;return}for(const st of['Steam','Epic']){if((await hget(st)).length)await findGames(st)}lpend()},1500);
 $('#gpb').onclick=async()=>{for(const st of[...pend])await findGames(st,{ask:1,noPick:1});lpend()};
 $('#hcmp').onclick=cmp;
@@ -507,11 +491,8 @@ $('#fi').onchange=e=>{if(e.target.files.length)handle([...e.target.files])};
 ['dragenter','dragover'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add('on')}));
 ['dragleave','drop'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove('on')}));
 dz.addEventListener('drop',e=>{if(e.dataTransfer.files.length)handle([...e.dataTransfer.files])});
-/* Media player: shows your Jellyfin server's own web interface. Only the server address is saved. */
 const JK='gca-jellyfin-last';
 try{localStorage.removeItem('gca-jellyfin');localStorage.removeItem('gca-jellyfin-device')}catch(e){}
-// Only a plain http(s) server address is ever accepted. javascript:, data:, file: and the like are dropped,
-// because this address ends up in an iframe src and a link href.
 const jsafe=v=>{try{const x=new URL(String(v).trim());return/^https?:$/.test(x.protocol)&&!x.username&&!x.password?x.origin+x.pathname.replace(/\/+$/,''):''}catch(e){return''}};
 let J=jsafe((()=>{try{return localStorage.getItem(JK)||''}catch(e){return''}})());
 function jview(load){
@@ -541,7 +522,6 @@ $('#jform').onsubmit=e=>{
 $('#jout').onclick=()=>{$('#ju').value=J;J='';try{localStorage.removeItem(JK)}catch(e){}jview(false)};
 jview(false);
 
-/* Home page previews: live numbers from saved scans, and up to 4 favorite games that launch on click */
 function ago(t){const d=Math.floor((Date.now()-t)/864e5);return d<=0?'Today':d===1?'Yesterday':d<30?d+' days ago':new Date(t).toLocaleDateString()}
 function homeRender(){
  const a=hload(),row=(k,v)=>'<span class="sw"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></span>',none='<span class="sn">No scans yet. Analyze a crash file and the numbers show up here.</span>';
@@ -567,7 +547,6 @@ function drvHome(){
 $('#hp-lib').addEventListener('click',e=>{const b=e.target.closest('.gq'),x=b&&lib.find(g=>g.id===b.dataset.id);if(!x)return;act('play',x);if(x.store!=='Custom')toast('Starting '+x.name)});
 $('#hp-lib').addEventListener('error',e=>{const i=e.target;if(i.tagName!=='IMG')return;const b=i.closest('.gq'),x=b&&lib.find(g=>g.id===b.dataset.id),n=+i.dataset.n||0,r=x?arts(x):[];if(r[n]){i.dataset.n=n+1;i.src=r[n]}else i.remove()},true);
 homeRender();
-// Image fallbacks. These used to be inline onerror="" attributes, which the page's Content-Security-Policy does not allow.
 document.addEventListener('error',e=>{
  const t=e.target;
  if(t instanceof HTMLImageElement&&t.dataset.oe)t.remove();

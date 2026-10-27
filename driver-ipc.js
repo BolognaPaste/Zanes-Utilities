@@ -1,6 +1,3 @@
-// Driver updater backend: runs the PowerShell scripts in ./ps and reports back to the page.
-// Updates come from the Windows Update driver catalog (Microsoft-signed), installed through
-// the Windows Update Agent API. Installing needs administrator rights, requested via UAC.
 const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -11,10 +8,8 @@ const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PS_ARGS = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass'];
 const MAX_INSTALL = 150;
 
-// Read a script, drop comment-only lines and indentation so the encoded command stays short.
 const readPS = name => fs.readFileSync(path.join(__dirname, 'ps', name), 'utf8')
   .split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#')).join('\n');
-// PowerShell treats the curly single quotes as quote characters too, so they are doubled along with the plain one.
 const psq = s => String(s).replace(/['\u2018\u2019\u201A\u201B]/g, m => m + m);
 const encode = s => Buffer.from(s, 'utf16le').toString('base64');
 const clean = s => String(s || '').replace(/#< CLIXML/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400);
@@ -63,14 +58,10 @@ function register(ipcMain, getWin) {
   ipcMain.handle('drv:install', (_e, req) => guard(async () => {
     const ids = Array.isArray(req && req.ids) ? [...new Set(req.ids.filter(x => typeof x === 'string' && GUID.test(x)))] : [];
     if (!ids.length) return { ok: false, error: 'No drivers were selected.' };
-    // The whole elevated script travels in the command line, which Windows limits to 32,767 characters.
-    // Each driver adds about 100, so well over 200 would make the helper fail to start.
     if (ids.length > MAX_INSTALL) return { ok: false, error: 'Select at most ' + MAX_INSTALL + ' drivers at a time. Install those first, then scan again for the rest.' };
 
     const log = path.join(os.tmpdir(), 'zu-drv-' + crypto.randomUUID() + '.log');
     fs.writeFileSync(log, '');
-    // The whole elevated script travels in the command line, so there is no script file on disk
-    // that another program could edit before it runs with administrator rights.
     const script = readPS('install.ps1')
       .replace('__IDS__', () => ids.map(i => "'" + i + "'").join(','))
       .replace('__LOG__', () => psq(log))
@@ -84,7 +75,7 @@ function register(ipcMain, getWin) {
       let txt = '';
       try { txt = fs.readFileSync(log, 'utf8'); } catch { return; }
       const lines = txt.replace(/\uFEFF/g, '').split('\n');
-      lines.pop(); // last piece is empty or a half-written line
+      lines.pop();
       for (; seen < lines.length; seen++) {
         let m; try { m = JSON.parse(lines[seen]); } catch { continue; }
         if (m.t === 'item') items.push(m);

@@ -1,12 +1,3 @@
-// SSH terminal backend (file transfer is in ssh-sftp.js). Runs in the main process, so the page never touches the network, your keys or
-// your password directly. It uses the "ssh2" package, which is loaded only when you first connect, so the
-// rest of the app still starts if that package has not been installed yet.
-//
-// What it guarantees:
-//  - Server identity is checked. A server seen for the first time is shown to you in a native dialog (the
-//    page cannot click it for you); a server whose key has CHANGED is refused outright.
-//  - Passwords and key passphrases are used for the one connection and are never written to disk.
-//  - Only a real private key file can be read as a key (it must start with a key header and be under 64 KB).
 const fs = require('fs');
 const secure = require('./secure-store');
 const fsp = fs.promises;
@@ -27,7 +18,6 @@ function load() {
   return lib;
 }
 
-// The same fingerprint OpenSSH prints: SHA256, base64, no padding.
 const fingerprint = blob => 'SHA256:' + crypto.createHash('sha256').update(blob).digest('base64').replace(/=+$/, '');
 function keyType(blob) {
   try { const n = blob.readUInt32BE(0); return blob.toString('latin1', 4, 4 + n).replace(/^ssh-/, '').toUpperCase(); } catch { return ''; }
@@ -50,18 +40,17 @@ function explain(e) {
 }
 
 function register(ipcMain, getWin, { app, dialog }) {
-  const sessions = new Map();            // id -> { conn, stream, chunks, timer, closed }
-  const prompts = new Map();             // pid -> { id, finish, timer }
+  const sessions = new Map();
+  const prompts = new Map();
   const send = m => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send('ssh:event', m); };
   const khFile = () => path.join(app.getPath('userData'), 'ssh-known-hosts.json');
-  // File transfer (SFTP) lives in its own file; it shares this connection and is told when a session ends.
   const sf = require('./ssh-sftp').register(ipcMain, getWin, { dialog, send, getSession: id => sessions.get(id) });
 
   async function readHosts() {
     try { const o = JSON.parse(await secure.readText(khFile())); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch { return {}; }
   }
   async function writeHosts(o) {
-    await secure.writeText(khFile(), JSON.stringify(o, null, 1));       // encrypted (secure-store.js)
+    await secure.writeText(khFile(), JSON.stringify(o, null, 1));
   }
 
   function flush(s) {
@@ -73,14 +62,14 @@ function register(ipcMain, getWin, { app, dialog }) {
   function queue(s, b) {
     s.chunks.push(b); s.size += b.length;
     if (s.size >= 262144) flush(s);
-    else if (!s.timer) s.timer = setTimeout(() => flush(s), 12);   // many small chunks become one message
+    else if (!s.timer) s.timer = setTimeout(() => flush(s), 12);
   }
   function closeSession(id, why) {
     const s = sessions.get(id);
     if (!s || s.closed) return;
     s.closed = true;
     flush(s);
-    try { sf.closed(id); } catch {}          // stops any copy and closes the file channel before the connection goes
+    try { sf.closed(id); } catch {}
     sessions.delete(id);
     try { s.stream && s.stream.end(); } catch {}
     try { s.conn.end(); } catch {}
@@ -178,7 +167,6 @@ function register(ipcMain, getWin, { app, dialog }) {
         else closeSession(id, 'The connection was closed.');
       });
 
-      // Some servers ask for the password again (or for a 2-step code) as a "keyboard-interactive" question.
       conn.on('keyboard-interactive', (name, instructions, _lang, qs, finish) => {
         if (auth === 'password' && !pwUsed && qs.length === 1 && /password/i.test(qs[0].prompt) && !qs[0].echo) { pwUsed = true; return finish([password]); }
         if (!qs.length) return finish([]);
@@ -192,7 +180,6 @@ function register(ipcMain, getWin, { app, dialog }) {
         host, port, username: user,
         readyTimeout: 20000, keepaliveInterval: 15000, keepaliveCountMax: 3,
         tryKeyboard: true,
-        // Called during the handshake with the server's public key; deciding here is what stops impersonation.
         hostVerifier: (blob, cb) => {
           fp = fingerprint(blob); typ = keyType(blob);
           const saved = known[hk];
@@ -210,7 +197,7 @@ function register(ipcMain, getWin, { app, dialog }) {
               '\n\nOnly continue if you expect this server. If you can, compare the fingerprint with the one from the server\'s owner (on the server: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub). If you trust it, the app remembers it and warns you if it ever changes.'
           }).then(async r => {
             if (r.response !== 1) { hostFail = 'Connection cancelled. You did not trust the server.'; return cb(false); }
-            try { const cur = await readHosts(); cur[hk] = fp; await writeHosts(cur); } catch { /* still connect; it will ask again next time */ }
+            try { const cur = await readHosts(); cur[hk] = fp; await writeHosts(cur); } catch { }
             cb(true);
           }).catch(() => { hostFail = 'Connection cancelled.'; cb(false); });
         }
@@ -247,7 +234,6 @@ function register(ipcMain, getWin, { app, dialog }) {
   });
 
   ipcMain.handle('ssh:close', (_e, req) => { const id = String((req && req.id) || ''); dropPrompts(id); closeSession(id, ''); return { ok: true }; });
-  // The page asks for this when it loads: a reloaded page has lost its terminals, so nothing may stay open behind it.
   ipcMain.handle('ssh:reset', () => { for (const id of [...prompts.values()].map(p => p.id)) dropPrompts(id); closeAll(); return { ok: true }; });
 
   ipcMain.handle('ssh:hosts', async () => {

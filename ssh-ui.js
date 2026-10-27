@@ -1,6 +1,3 @@
-// SSH terminal page (Privacy & security). Talks to ssh-ipc.js and ssh-sftp.js through window.sshTerm (see preload.js)
-// and draws the terminal with xterm.js. The Files panel (upload / download) is the last big section of this file. Uses $, esc and toast from app.js.
-// Saved connections keep the host, port, user name and key file path. Passwords and passphrases are never stored.
 (function () {
   'use strict';
   const api = window.sshTerm;
@@ -38,13 +35,12 @@
   api.state().then(r => {
     if (r && r.ok && !r.data.available) { dep.hidden = false; dep.textContent = r.data.error; go.disabled = true; }
   }).catch(() => {});
-  api.reset().catch(() => {});          // a freshly loaded page has no terminals, so nothing may stay open behind it
+  api.reset().catch(() => {});
 
-  /* ---------- state ---------- */
-  const S = new Map();                  // id -> session
+  const S = new Map();
   let active = 'new', font = clip(+read(FK) || 14), keyPath = '', busy = false, profiles = [];
 
-  const THEME = { background: '#0a0710', foreground: '#ece6f5', cursor: '#b57bff', cursorAccent: '#0a0710', selectionBackground: '#4b2f7a' };
+  const THEME = { background: '#040913', foreground: '#dbeaff', cursor: '#7ce8ff', cursorAccent: '#040913', selectionBackground: '#1d4a6b' };
 
   function fitNow(s) {
     if (!s || !s.box.offsetWidth || !s.box.offsetHeight) return;
@@ -55,7 +51,6 @@
   if (typeof ResizeObserver === 'function') new ResizeObserver(refit).observe(stage);
   window.addEventListener('resize', refit);
 
-  /* ---------- tabs and views ---------- */
   function renderTabs() {
     let h = '';
     for (const s of S.values()) {
@@ -100,7 +95,6 @@
     term.loadAddon(fit);
     term.open(box);
     const s = { id, label, box, term, fit, fp: '', keyType: '', closed: false, ready: false, f: newF() };
-    // Ctrl+C copies when text is selected (otherwise it goes to the program). Ctrl+V and Ctrl+Shift+V paste.
     term.attachCustomKeyEventHandler(ev => {
       if (ev.type !== 'keydown' || !ev.ctrlKey) return true;
       const k = String(ev.key).toLowerCase();
@@ -109,7 +103,7 @@
         if (t) { try { navigator.clipboard.writeText(t).then(() => toast('Copied')).catch(() => {}); } catch {} }
         return false;
       }
-      if (k === 'v') return false;      // lets the browser paste into the terminal
+      if (k === 'v') return false;
       return true;
     });
     term.onData(d => { if (s.ready && !s.closed) api.input(id, d).catch(() => {}); });
@@ -127,12 +121,11 @@
   function ended(s, why) {
     if (s.closed) return;
     s.closed = true;
-    s.f.x = null; s.f.busy = false; s.f.q = null; s.f.msg = ''; s.f.bad = false;   // the panel then says the connection is closed
+    s.f.x = null; s.f.busy = false; s.f.q = null; s.f.msg = ''; s.f.bad = false;
     s.term.write('\r\n\x1b[33m[' + (why || 'The session ended.') + ']\x1b[0m\r\n');
     if (active === s.id) view(s.id); else renderTabs();
   }
 
-  /* ---------- saved connections ---------- */
   function loadProfiles() {
     try { const a = JSON.parse(read(PK)); profiles = Array.isArray(a) ? a.filter(p => p && typeof p.host === 'string' && typeof p.user === 'string').slice(0, 30) : []; } catch { profiles = []; }
   }
@@ -159,7 +152,6 @@
     else if (d) { profiles.splice(+d.dataset.del, 1); storeProfiles(); renderSaved(); }
   });
 
-  /* ---------- the form ---------- */
   function sync() {
     const key = auth.value === 'key';
     pwW.hidden = key; keyW.hidden = !key;
@@ -186,7 +178,7 @@
     busy = true; sync(); note('Connecting to ' + h + '\u2026');
     const id = rid(), label = u + '@' + h + (pt === '22' ? '' : ':' + pt);
     const s = makeSession(id, label);
-    view(id);                                // shown now so the terminal has a real size to report to the server
+    view(id);
     s.term.write('Connecting to ' + h + '\u2026\r\n');
     let r;
     try {
@@ -195,7 +187,7 @@
         keyPath: auth.value === 'key' ? keyPath : '', passphrase: pp.value, cols: s.term.cols, rows: s.term.rows
       });
     } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
-    pass.value = ''; pp.value = '';          // gone from the page as soon as the server has had it
+    pass.value = ''; pp.value = '';
     busy = false;
     hidePrompt(id);
     if (!r || !r.ok) {
@@ -221,7 +213,6 @@
   go.addEventListener('click', connect);
   [host, port, user, pass, pp].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); connect(); } }));
 
-  /* ---------- tabs, toolbar ---------- */
   newB.addEventListener('click', () => { view('new'); host.focus(); });
   tabs.addEventListener('click', e => {
     const x = e.target.closest('[data-x]'), t = e.target.closest('[data-t]');
@@ -252,7 +243,6 @@
   bFont.up.addEventListener('click', () => setFont(font + 1));
   bClear.addEventListener('click', () => { const s = S.get(active); if (s) { s.term.clear(); if (!s.closed) s.term.focus(); } });
 
-  /* ---------- questions from the server (2-step codes, repeated password) ---------- */
   const queue = [];
   function showPrompt() {
     const q = queue[0];
@@ -280,7 +270,6 @@
   pbox.addEventListener('click', e => { if (e.target.closest('[data-ok]')) answer(true); else if (e.target.closest('[data-no]')) answer(false); });
   pbox.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('input')) { e.preventDefault(); answer(true); } });
 
-  /* ---------- events from the main process ---------- */
   api.onEvent(m => {
     const s = m && S.get(m.id);
     if (!s) return;
@@ -290,7 +279,6 @@
     else if (m.t === 'prompt') { queue.push({ id: m.id, pid: m.pid, name: m.name, instructions: m.instructions, prompts: m.prompts || [] }); if (queue.length === 1) showPrompt(); }
   });
 
-  /* ---------- servers this app trusts ---------- */
   async function loadHosts() {
     let r;
     try { r = await api.hosts(); } catch { r = null; }
@@ -311,9 +299,6 @@
     if (r && r.ok) loadHosts();
   });
 
-  /* ---------- files on the server (SFTP) ---------- */
-  // Each connection keeps its own folder, ticked items and transfer state in s.f. Paths on this PC never reach the
-  // page: uploads and downloads open native dialogs in the main process.
   function newF() { return { path: '', entries: [], trunc: false, sel: new Set(), tried: false, loading: false, busy: false, tok: 0, x: null, q: null, msg: '', bad: false }; }
   let filesOn = false, qOwner = '';
   if (!api.ls) { bFiles.hidden = true; }
@@ -384,7 +369,6 @@
     if (alive(s) && !s.f.tried) fpLoad(s, '');
   }
 
-  // after = message to show once the folder has loaded (for example "3 items deleted").
   async function fpLoad(s, dir, after, bad) {
     const f = s.f, tok = ++f.tok;
     f.tried = true; f.loading = true;
@@ -413,7 +397,7 @@
     const s = S.get(active), o = e.target.closest('[data-o]');
     if (!s) return;
     if (o) { const en = s.f.entries[+o.dataset.o]; if (en && idle(s)) fpLoad(s, joinP(s.f.path, en.name)); return; }
-    if (e.target.matches('input')) return;                      // the checkbox reports through "change"
+    if (e.target.matches('input')) return;
     const r = e.target.closest('[data-i]');
     if (r) toggleRow(s, +r.dataset.i, !r.dataset.on);
   });
@@ -435,7 +419,6 @@
     else if (e.key === 'Escape') { F.path.value = s.f.path; F.path.blur(); }
   });
 
-  /* name box for "New folder" and "Rename" (the page cannot use window.prompt) */
   function askName(mode) {
     const s = S.get(active);
     if (!s || !idle(s)) return;
@@ -482,7 +465,6 @@
     await fpLoad(s, s.f.path, msg, d.failed.length > 0);
   });
 
-  /* uploads and downloads */
   function summary(d) {
     const down = d.op === 'download', done = (down ? 'Downloaded ' : 'Uploaded ') + plural(d.files, 'file') + (d.dirs ? ' and ' + plural(d.dirs, 'folder') : '') + ' (' + bytes(d.bytes) + ')';
     let m = d.cancelled ? 'Stopped. ' + done + ' before you cancelled.' : done + (down && d.dest ? ' to ' + d.dest : '') + '.';
@@ -503,7 +485,7 @@
     if (!S.has(s.id)) return;
     if (!r || !r.ok) { setMsg(s, (r && r.error) || 'The transfer did not work.', true); fpRender(); return; }
     const d = r.data || {};
-    if (d.dialog) { setMsg(s, ''); fpRender(); return; }             // nothing was chosen
+    if (d.dialog) { setMsg(s, ''); fpRender(); return; }
     const bad = !!(d.failed && d.failed.length);
     if (op === 'upload') await fpLoad(s, f.path, summary(d), bad);
     else { setMsg(s, summary(d), bad); fpRender(); }

@@ -1,8 +1,6 @@
-/* Bitwarden-style vault UI for Zane's Utilities */
 (function () {
   'use strict';
 
-  // ─── CSS ─────────────────────────────────────────────────────────────────
   const styleEl = document.createElement('style');
   styleEl.textContent = `
     #vt-host{display:flex;background:var(--bg);position:relative;border:1px solid var(--bd);box-sizing:border-box;}
@@ -122,13 +120,11 @@
   `;
   document.head.appendChild(styleEl);
 
-  // ─── Refs ─────────────────────────────────────────────────────────────────
   const api = window.vault;
-  const pg = document.getElementById('p-vault');     // the whole page (title + box), shown and hidden by the menu
-  const page = document.getElementById('vt-host');   // the box the vault draws into
+  const pg = document.getElementById('p-vault');
+  const page = document.getElementById('vt-host');
   if (!pg || !page) return;
 
-  // ─── Icons ────────────────────────────────────────────────────────────────
   const I = {
     shield40: `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.955 11.955 0 003 10c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>`,
     shield16: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.955 11.955 0 003 10c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>`,
@@ -148,7 +144,6 @@
     emptyFile: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>`,
   };
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const $ = id => document.getElementById(id);
   const fmtSize = b => {
@@ -187,7 +182,6 @@
     return { c: t.c, b: 'color-mix(in srgb,' + t.c + ' 15%,transparent)', l: t.l };
   };
 
-  // ─── State ────────────────────────────────────────────────────────────────
   let vaultData  = null;
   let sel        = new Set();
   let folderFlt  = null;
@@ -196,7 +190,6 @@
   let pickedFile = null;
   let offProg    = null;
 
-  // ─── Scaffold ─────────────────────────────────────────────────────────────
   if (!api) {
     page.innerHTML = `<div class="vt-na"><div class="vt-na-card">${I.shield40}<h2 class="vt-na-title">Encrypted vault</h2><p class="vt-na-sub">Only works in the Zane's Utilities<br>desktop app on Windows.</p></div></div>`;
     return;
@@ -270,7 +263,6 @@
     <div id="vt-toast" class="vt-toast"></div>
   `;
 
-  // ─── Toast ────────────────────────────────────────────────────────────────
   function toast(msg, kind) {
     const tc = $('vt-toast'), el = document.createElement('div');
     el.className = `vt-ti ${kind || 'ok'}`;
@@ -279,7 +271,6 @@
     setTimeout(() => el.remove(), 4000);
   }
 
-  // ─── Progress overlay ─────────────────────────────────────────────────────
   function showProg(title) {
     $('vt-prog-ttl').textContent = title;
     $('vt-prog-f').textContent = '';
@@ -299,11 +290,9 @@
   function hideProg() {
     $('vt-prog').style.display = 'none';
     if (offProg) { offProg(); offProg = null; }
-    // showProg() replaced the idle-lock listener with the progress one, so put it back while a vault is open.
     if (vaultData) listenIdle();
   }
 
-  // ─── Lock screen ──────────────────────────────────────────────────────────
   function renderLock(tab) {
     tab = tab || 'open';
     const el = $('vt-lock');
@@ -345,7 +334,6 @@
       ${tab === 'open' ? openTab() : createTab()}
     </div>`;
 
-    // Tabs
     $('vt-tab-open').onclick = () => renderLock('open');
     $('vt-tab-create').onclick = () => renderLock('create');
 
@@ -408,7 +396,6 @@
     else if (!r.declined) lsErr(r.error || 'Failed to create vault.');
   }
 
-  // ─── Browser rendering ────────────────────────────────────────────────────
   function renderBrowser() {
     if (!vaultData) return;
     $('vt-sb-nm').textContent = vaultData.name;
@@ -507,14 +494,12 @@
     $('vt-stat-s').textContent = fmtSize(vaultData.bytes);
   }
 
-  // ─── State transitions ────────────────────────────────────────────────────
   function setLocked(msg) {
     vaultData = null; sel.clear(); folderFlt = null; searchQ = '';
     $('vt-lock').style.display = 'flex';
     $('vt-browser').style.display = 'none';
     renderLock('open');
     if (msg) toast(msg, 'err');
-    // Re-register idle listener after lock
     if (offProg) { offProg(); offProg = null; }
   }
 
@@ -536,7 +521,6 @@
     });
   }
 
-  // ─── Change password modal ────────────────────────────────────────────────
   function openCpModal() {
     $('vt-cp-err').innerHTML = '';
     ['vt-cp-old','vt-cp-new','vt-cp-new2'].forEach(id => { const el=$(id); if(el) el.value=''; });
@@ -559,7 +543,6 @@
     else toast(r.error || 'Failed to change password.', 'err');
   }
 
-  // ─── Vault operations ─────────────────────────────────────────────────────
   async function doAdd(kind) {
     if (busy) return; busy = true;
     showProg(kind === 'folders' ? 'Adding folders…' : 'Adding files…');
@@ -596,12 +579,10 @@
 
   async function doLock() { if (busy) return; await api.lock(); setLocked(); }
 
-  // ─── Event delegation ─────────────────────────────────────────────────────
   page.addEventListener('click', e => {
     const btn = e.target.closest('[id]');
     const id = btn && btn.id;
     if (!id) return;
-    // Eye toggles (always)
     if (e.target.closest('.vt-eye')) {
       const eye = e.target.closest('.vt-eye');
       const inp = $(eye.dataset.eye);
@@ -624,7 +605,6 @@
     if (e.target.id === 'vt-search') { searchQ = e.target.value; sel.clear(); renderTable(); updateSelBar(); }
   });
 
-  // ─── Init ─────────────────────────────────────────────────────────────────
   async function init() {
     const r = await api.state();
     if (r.ok && r.data) setUnlocked(r.data);

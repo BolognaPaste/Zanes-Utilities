@@ -1,7 +1,3 @@
-// App lock, page side: the lock screen, the padlock at the top of the menu and the "App lock" section of
-// Settings. The lock itself is enforced by the main process (lock-ipc.js); this file only draws it and talks to
-// it through window.appLock (see preload.js). It uses nothing from the other scripts except the optional toast and
-// page pause functions, so the lock screen keeps working even if another script fails.
 (function () {
   'use strict';
   const q = s => document.querySelector(s);
@@ -15,16 +11,14 @@
 
   const nb = q('#lk-nav'), pw = q('#lk-pw'), go = q('#lk-go'), err = q('#lk-err');
 
-  // Settings page: the buttons in the left column jump to their section (works with or without the lock).
   document.querySelectorAll('.sxp .sx-act[data-sj]').forEach(b => b.addEventListener('click', () => {
     document.querySelectorAll('.sxp .sx-act[data-sj]').forEach(x => x.removeAttribute('data-on'));
     b.setAttribute('data-on', '1');
     const t = q('#' + b.dataset.sj);
     if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    held = true;                    // keep the clicked one lit while the page glides there
+    held = true;
   }));
 
-  // Settings page: as the page on the right scrolls, the left column lights up the section that is in view.
   let held = false;
   (function spy() {
     const body = q('#p-settings .sx-body');
@@ -47,40 +41,26 @@
     ['wheel', 'touchmove', 'keydown', 'pointerdown'].forEach(ev => body.addEventListener(ev, () => { held = false; }, { passive: true }));
   })();
 
-  // Settings page: whether the saved data is being encrypted (secure-store.js).
-  (function dataProtection() {
-    const el = q('#dp-status');
-    if (!el) return;
-    const ss = window.secureStore;
-    if (!ss || !ss.status) { el.textContent = 'Data protection only works in the Zane\'s Utilities desktop app.'; return; }
-    ss.status().then(r => {
-      if (r && r.on && r.method === 'dpapi') el.textContent = 'Active. Saved data is encrypted with ' + r.algo + '. The key is protected by your Windows account.';
-      else if (r && r.on) el.textContent = 'Active, but Windows could not protect the key on this PC, so it is stored in a private file next to the data. The data is still encrypted.';
-      else el.textContent = 'Not active: encryption could not start, so data is saved the normal way. Restart the app to try again.';
-    }).catch(() => { el.textContent = 'Could not check.'; });
-  })();
-
-  if (!api) {                       // opened outside the desktop app: nothing to lock
+  if (!api) {
     if (nb) nb.hidden = true;
     const s = q('#lk-status');
     if (s) s.textContent = 'App lock only works in the Zane\'s Utilities desktop app.';
+    const d = q('#dp-status');
+    if (d) d.textContent = 'Data protection only works in the Zane\'s Utilities desktop app.';
     return;
   }
 
   let st = { enabled: false, locked: false, auto: 0, dir: '' };
   let startedLocked = !!api.startLocked, reloading = false, waitTimer = 0, busy = false;
 
-  // ---- Lock screen ----------------------------------------------------------------------------------------
   const enable = on => { if (pw) pw.disabled = !on; if (go) go.disabled = !on; };
 
-  // Things that would sit on top of the lock screen or keep going behind it are put away first.
   function pauseAll() {
     try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch {}
     for (const f of ['fmPause', 'phPause', 'lvPause']) { try { if (typeof window[f] === 'function') window[f](); } catch {} }
     try { if (typeof closeMenu === 'function') closeMenu(); if (typeof closeDlg === 'function') closeDlg(); } catch {}
   }
 
-  // Bring back what was on screen when the lock came on (only the FMHY view and the Phone page need it).
   function resume() {
     const cur = q('nav .nv[aria-current="page"]'), p = cur && cur.dataset.p;
     try {
@@ -101,7 +81,6 @@
     }
     if (!root.classList.contains('locked') || reloading) return;
     if (startedLocked) {
-      // The page was loaded while locked, so its start-up requests were all refused. Load it again, now unlocked.
       reloading = true;
       location.reload();
       return;
@@ -140,7 +119,6 @@
   pw.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tryUnlock(); } });
   if (api.onChange) api.onChange(m => { if (m && typeof m.locked === 'boolean') setLocked(m.locked); });
 
-  // ---- Padlock at the bottom of the menu --------------------------------------------------------------------
   function toSettings(id) {
     const s = q('.nv[data-p="settings"]');
     if (s) s.click();
@@ -148,12 +126,11 @@
     if (j) j.click();
   }
   if (nb) nb.addEventListener('click', async () => {
-    if (!st.enabled) return toSettings('lk-card');          // no password yet: go and set one up
+    if (!st.enabled) return toSettings('lk-card');
     try { const r = await api.lock(); if (r && r.ok === false) note(r.error || 'Could not lock.'); }
     catch { note('Could not lock.'); }
   });
 
-  // ---- Settings section ---------------------------------------------------------------------------------------
   function settings() {
     const E = id => document.getElementById(id);
     const msg = E('lk-msg');
@@ -181,9 +158,11 @@
       s.textContent = st.enabled ? 'App lock is on' : 'App lock is off. Anyone who opens the app can use it.';
       s.className = st.enabled ? 'lk-st on' : 'lk-st';
       E('lk-auto').value = String(st.auto || 0);
-      E('lk-dir').textContent = st.enabled
-        ? 'Forgot the password? There is no reset. The lock can only be taken off by deleting the file app-lock.json from this folder: ' + (st.dir || 'the app data folder')
-        : '';
+      E('lk-rmbox').hidden = !!st.storagePassword;
+      E('lk-dir').textContent = !st.enabled ? ''
+        : st.storagePassword
+          ? 'This password also protects your saved data, so it cannot be turned off here (use Data protection below to go back to your Windows account). Forgot it? Nothing can be recovered: the only way back in is to delete the file zu-loc.bin from this folder, which makes the app start fresh and the old saved data is lost for good: ' + (st.dir || 'the app data folder')
+          : 'Forgot the password? There is no reset. The lock can only be taken off by deleting the file app-lock.json from this folder: ' + (st.dir || 'the app data folder');
     };
 
     run(E('lk-set'), async () => {
@@ -242,8 +221,67 @@
     if (typeof window.lkPaint === 'function') window.lkPaint();
   }
 
-  try { settings(); } catch (e) { /* the lock screen above still works if the Settings form fails */ }
+  function dataProtection() {
+    const E = id => document.getElementById(id);
+    const el = E('dp-status'), msg = E('dp-msg');
+    if (!el || !msg) return;
+    const ss = window.secureStore;
+    if (!ss || !ss.status) { el.textContent = 'Data protection only works in the Zane\'s Utilities desktop app.'; return; }
+    const say = (t, bad) => { msg.textContent = t || ''; msg.className = bad ? 'err' : 'fx'; };
+    const val = id => E(id).value;
+    const clear = (...ids) => ids.forEach(i => { E(i).value = ''; });
+    const fail = r => say(((r && r.error) || 'Something went wrong.') + (r && r.wait > 0 ? ' Try again in ' + r.wait + ' s.' : ''), true);
+    const run = (btn, fn) => btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try { await fn(); } catch { say('Something went wrong. Try again.', true); } finally { btn.disabled = false; }
+    });
+
+    async function paint() {
+      let r;
+      try { r = await ss.status(); } catch { el.textContent = 'Could not check.'; return; }
+      const two = ' Saved data is encrypted twice with ' + (r.algo || 'AES-256-GCM') + ', and the keys move to a new place each time the app starts.';
+      if (r && r.on && r.method === 'password') el.textContent = 'Active.' + two + ' The keys are locked with your own password.';
+      else if (r && r.on && r.method === 'dpapi') el.textContent = 'Active.' + two + ' The keys are protected by your Windows account.';
+      else if (r && r.on) el.textContent = 'Active, but Windows could not protect the keys on this PC, so they are kept in a private file next to the data. The data is still encrypted twice.';
+      else el.textContent = 'Not active: encryption could not start, so data is saved the normal way. Restart the app to try again.';
+      const on = !!(r && r.on);
+      E('dp-win').hidden = !(on && r.method !== 'password');
+      E('dp-pw').hidden = !(on && r.method === 'password');
+      E('dp-curw').hidden = !st.enabled;
+    }
+
+    run(E('dp-on'), async () => {
+      const a = val('dp-n1');
+      if (a.length < 8) return say('Use at least 8 characters.', true);
+      if (a !== val('dp-n2')) return say('The two passwords do not match.', true);
+      if (st.enabled && !val('dp-cur')) return say('Enter your current app lock password.', true);
+      say('Working... this takes a moment.');
+      const r = await ss.pwEnable(a, st.enabled ? val('dp-cur') : undefined);
+      if (!r || !r.ok) return fail(r);
+      clear('dp-n1', 'dp-n2', 'dp-cur');
+      await refresh(); await paint();
+      say('Done. The app will ask for this password every time it opens, and it is now your app lock password too.');
+      note('Data is now protected by your password');
+    });
+
+    run(E('dp-off'), async () => {
+      if (!val('dp-c2')) return say('Enter your current password.', true);
+      say('Working... this takes a moment.');
+      const r = await ss.pwDisable(val('dp-c2'));
+      if (!r || !r.ok) return fail(r);
+      clear('dp-c2');
+      await refresh(); await paint();
+      say('Done. The keys are protected by your Windows account again. The app lock keeps the same password; change or remove it in the App lock section.');
+      note('Data is now protected by your Windows account');
+    });
+
+    document.querySelectorAll('#dp-card input').forEach(i => i.addEventListener('input', () => say('')));
+    paint();
+  }
+
+  try { settings(); } catch (e) { }
   refresh().catch(() => {}).then(() => {
+    try { dataProtection(); } catch (e) { }
     if (st.locked) startedLocked = true;
     if (st.locked || root.classList.contains('locked')) setLocked(true);
   });

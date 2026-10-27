@@ -6,7 +6,17 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win"
+    "build": "electron-builder --win",
+    "test": "node --test \"test/unit/*.test.js\"",
+    "test:e2e": "playwright test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.json",
+    "baseline": "node scripts/baseline.js",
+    "verify:binaries": "node scripts/verify-binaries.js",
+    "check": "npm run lint && npm run format:check && npm test",
+    "sbom": "npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json"
   },
   "build": {
     "appId": "com.zane.utilities",
@@ -15,11 +25,18 @@
     ],
     "copyright": "Copyright © Zane",
     "electronFuses": {
-      "enableCookieEncryption": true
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
     },
     "productName": "Zanes Utilities",
     "files": [
       "main.js",
+      "diagnostics.js",
+      "logger.js",
       "preload.js",
       "driver-ipc.js",
       "drivers.js",
@@ -60,11 +77,15 @@
       "test-ui.js",
       "efs-shim.js",
       "secure-store.js",
+      "keystore.js",
       "secure-ls.js",
       "index.html",
+      "cyber.css",
+      "cyber.js",
       "bg.jpg",
       "build/icon.png",
       "app.js",
+      "lazy.js",
       "xml-deep.js",
       "ps/*.ps1",
       "scrcpy/**/*",
@@ -91,14 +112,30 @@
     ]
   },
   "dependencies": {
-    "@ghostery/adblocker-electron": "^2.0.0",
+    "@ghostery/adblocker-electron": "2.20.1",
     "@xterm/addon-fit": "0.10.0",
     "@xterm/xterm": "5.5.0",
-    "ffmpeg-static": "^5.2.0",
-    "ssh2": "^1.16.0"
+    "ffmpeg-static": "5.3.0",
+    "ssh2": "1.17.0"
   },
   "devDependencies": {
-    "electron": "^44.4.5",
-    "electron-builder": "^26.15.3"
+    "@playwright/test": "1.49.1",
+    "@types/node": "22.10.2",
+    "electron": "44.7.2",
+    "electron-builder": "26.5.0",
+    "eslint": "9.17.0",
+    "prettier": "3.4.2",
+    "typescript": "5.7.3"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "allowScripts": {
+    "electron-winstaller@5.4.0": true,
+    "ffmpeg-static@5.3.0": true,
+    "ssh2@1.17.0": true,
+    "cpu-features@0.0.10": true
   }
 }

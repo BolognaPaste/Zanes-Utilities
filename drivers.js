@@ -1,6 +1,3 @@
-// Windows Update section of the Driver updater page: scanning for driver updates, selecting and
-// installing them, and the collapsible list of currently installed drivers.
-// Talks to driver-ipc.js through window.drivers (see preload.js). Uses $ and esc from index.html.
 (function () {
   'use strict';
   const na = $('#dv-na'), scanBtn = $('#dv-scan'), instBtn = $('#dv-inst');
@@ -14,7 +11,6 @@
   const getFlag = (k, def) => { try { const v = localStorage.getItem(k); return v === null ? def : v === '1'; } catch { return def; } };
   const setFlag = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0'); } catch {} };
 
-  // Remember the last successful scan so the Home page preview can show it, even after a restart.
   const LAST_K = 'gca-dv-last';
   const saveLast = found => {
     try {
@@ -111,7 +107,7 @@
     }
     if (d.warns && d.warns.length) html += d.warns.map(w => '<p class="fx">' + esc(w) + '</p>').join('');
     res.innerHTML = html;
-    scan(false, true);   // refresh the list, but keep the install result on screen
+    scan(false, true);
   }
 
   const fmtDate = s => { const t = s ? Date.parse(s) : NaN; return t ? new Date(t).toLocaleDateString() : ''; };
@@ -154,7 +150,5 @@
   old.addEventListener('change', renderInstalled);
   if (det) det.addEventListener('toggle', () => { if (det.open && !installed.length) loadInstalled(); });
 
-  // The automatic scan starts a few seconds after launch, so it does not compete with the window opening.
-  // It is skipped if a scan was already started by hand in the meantime.
   if (auto && auto.checked) setTimeout(() => { if (!scanBtn.disabled) scan(true); }, 4000);
 })();

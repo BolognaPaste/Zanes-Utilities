@@ -1,7 +1,3 @@
-// Deep scanner for XML crash files. Called from handle() in app.js (window.anXml) and uses E, M, T, base, esc, anText from app.js.
-// Reads: Windows Event Log exports, Unreal Engine CrashContext (.runtime-xml), Windows Error Reporting metadata, DxDiag (/x) reports,
-// and any other XML (every value is scanned). It parses the whole tree, rebuilds call stacks, checks the faulting module and
-// exception code, memory, drivers and nearby system events, and shows the XML as a collapsible tree.
 (function () {
   'use strict';
   const lc = s => String(s == null ? '' : s).toLowerCase(), nm = e => lc(e.localName || e.nodeName);
@@ -53,8 +49,6 @@
 
   window.anXml = function anXml(name, txt) {
     txt = txt.replace(/^\uFEFF/, '');
-    // Drop any DOCTYPE (with its entity definitions) before parsing, so a crafted file cannot expand entities into huge text.
-    // The full text still goes to the plain-text scan below if the XML turns out to be damaged.
     const safeXml = txt.replace(/<!DOCTYPE[^>\[]*(?:\[[\s\S]*?\]\s*)?>/gi, '');
     const doc = new DOMParser().parseFromString(safeXml, 'application/xml');
     const pe = doc.getElementsByTagName('parsererror')[0];
@@ -67,7 +61,7 @@
     };
     const scanCodes = s => { for (const m of s.matchAll(EX)) if (E[m[1].toUpperCase()]) exc(m[1], 'found in the file: ' + m[0]); };
 
-    if (pe) {   // cut-off or damaged file: scan it as text, and say so
+    if (pe) {
       const r = anText(name, txt);
       r.findings.forEach(f => { if (!seen.has(f.t)) { seen.add(f.t); F.push(f); } });
       scanCodes(txt);
@@ -83,7 +77,6 @@
     facts.push(['Format', isUE ? 'Unreal Engine crash context' : evs.length ? 'Windows Event Log export' : isWer ? 'Windows Error Reporting metadata' : isDx ? 'DxDiag report' : 'Generic XML'],
       ['Elements scanned', String(doc.getElementsByTagName('*').length)]);
 
-    // A crash described by faulting app, module, exception code and offset (Event 1000 and WER APPCRASH share this).
     const appCrash = (app, mod, code, off, when) => {
       if (app) facts.push(['Crashed program', app]);
       if (when) facts.push(['Crash time', when]);
@@ -97,7 +90,6 @@
       else add('M', 'Crash inside ' + b, 'The fault happened in this module. If it is a third-party DLL, that program is the suspect.', 'Search the module name with the game name; update or remove the software that owns it.', b);
     };
 
-    // Unreal Engine CrashContext
     if (isUE) {
       fct('Game', 'gamename', 'executablename'); fct('Build', 'buildconfiguration'); fct('Engine version', 'engineversion'); fct('Crash type', 'crashtype');
       fct('Platform', 'platformfullname'); fct('CPU', 'misc.cpubrand'); fct('GPU', 'misc.primarygpubrand'); fct('Seconds since start', 'secondssincestart');
@@ -116,7 +108,6 @@
       if (pl.length) add('L', 'Overlay or injected hook module', 'A capture, overlay or injector module is listed in the crash report.', 'Turn the overlay or capture tool off and retest.', [...new Set(pl)].join('\n'));
     }
 
-    // WER metadata (ProblemSignatures)
     if (isWer) {
       fct('Report type', 'eventtype'); fct('Windows', 'windowsntversion'); fct('Build', 'build'); fct('Product', 'product');
       const P = i => g('parameter' + i);
@@ -124,7 +115,6 @@
       else if (/apphang/i.test(g('eventtype'))) add('M', 'The game stopped responding', 'Windows recorded a hang, not a crash.', 'Check drive, network and GPU stalls; lower graphics settings.', P(0));
     }
 
-    // Windows Event Log
     let tl = '';
     if (evs.length) {
       const q = (e, n) => e.getElementsByTagNameNS('*', n)[0];
@@ -159,7 +149,6 @@
         sel.map(x => '<tr><td>' + esc(x.t.replace('T', ' ').replace(/\.\d+Z?$/, '')) + (near(x) && !x.hit ? ' \u2022' : '') + '</td><td>' + esc(short(x.p, 40)) + '</td><td>' + x.id + '</td><td>' + (LV[x.lv] || x.lv) + '</td><td>' + esc(short(x.d.join(' | ') || x.msg, 110)) + '</td></tr>').join('') + '</table></div>';
     }
 
-    // DxDiag
     if (isDx) {
       fct('Windows', 'operatingsystem'); fct('CPU', 'processor'); fct('Memory', 'memory'); fct('Page file', 'pagefile'); fct('DirectX', 'directxversion');
       const ram = num((g('memory').match(/(\d+)\s*MB/i) || [])[1]);
@@ -180,12 +169,10 @@
       for (const l of V) if (/note/.test(l.k) && /problem|error|fail|not working|disabled/i.test(l.v)) add('M', 'DxDiag reported a problem', 'DxDiag found an issue on this PC.', 'Read the note and fix what it names, then run DxDiag again.', short(l.v, 220));
     }
 
-    // Every value in the file: exception codes, error patterns, overlay and driver modules
     scanCodes(V.map(l => l.v).join('\n'));
     for (const [re, s, t, w, x] of T) { const l = V.find(l => l.v.length < 4000 && re.test(l.v)); if (l) add(s, t, w, x, l.path.replace(/^\//, '') + ': ' + short(l.v, 160)); }
     for (const m of M) { if (m.k === 'rt' || m.k === 'au') continue; const l = V.find(l => l.v.length < 4000 && m.r.test(l.v)); if (l) add(m.k === 'ov' ? 'L' : 'M', m.t.replace('Crash inside', 'Mentions'), m.w, m.x, l.path.replace(/^\//, '') + ': ' + short(l.v, 160)); }
 
-    // Call stacks
     let fr = [];
     for (const l of V) if (/callstack|stacktrace|backtrace|^stack$/.test(l.k) && l.v.length > 20) fr = fr.concat(frames(l.v));
     let st = '';

@@ -1,13 +1,3 @@
-// Keeps the page's localStorage in the app's encrypted store (secure-store.js) instead of in Chromium's plain files.
-//
-// Runs first, in the page's <head>, so every script after it simply keeps calling localStorage as before. The data is
-// held in memory (reads are instant) and changes are sent to the main process in small batches, which encrypts and
-// saves them in the background. Outside the desktop app (or if anything here fails) nothing is replaced and the
-// browser's own localStorage is used, so the page always works.
-//
-// First start after an update: whatever the old, unencrypted localStorage held is handed over once, and the old copy
-// is erased only after the encrypted one has been saved. While the app is locked the page is given an empty store
-// (the real data stays in the main process); after unlocking the page reloads and gets everything.
 (function () {
   'use strict';
   const api = window.secureStore;
@@ -22,7 +12,6 @@
   const live = !res.locked;
   const mem = new Map(Object.entries(res.data || {}));
 
-  // Old unencrypted data, handed over once. If the hand-over fails nothing is replaced and nothing is erased.
   if (live && res.fresh) {
     try {
       const o = {};
@@ -35,7 +24,6 @@
     } catch (e) { return; }
   }
 
-  // Changes are collected and sent together, shortly after the last one and when the page closes.
   let pend = new Map(), clr = false, timer = 0;
   const flush = () => {
     timer = 0;
@@ -44,7 +32,7 @@
     pend.forEach((v, k) => ops.push([k, v]));
     const batch = { clear: clr, ops };
     pend = new Map(); clr = false;
-    try { api.send(batch); } catch (e) { /* the next change sends it again */ }
+    try { api.send(batch); } catch (e) { }
   };
   const later = () => { if (live && !timer) timer = setTimeout(flush, 60); };
   const queue = (k, v) => { if (!live) return; pend.set(k, v); later(); };
@@ -79,6 +67,5 @@
   window.addEventListener('beforeunload', flush);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
 
-  // Only now that the replacement is in place, and the encrypted copy is saved, is the old plain copy erased.
-  if (live) { try { if (real.length) real.clear(); } catch (e) { /* best effort */ } }
+  if (live) { try { if (real.length) real.clear(); } catch (e) { } }
 })();

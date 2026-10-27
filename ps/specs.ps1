@@ -1,4 +1,3 @@
-# Reads this PC's hardware for the Game optimizer. Needs no admin rights and changes nothing.
 $ErrorActionPreference = 'SilentlyContinue'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8

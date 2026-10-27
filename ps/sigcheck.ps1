@@ -1,4 +1,3 @@
-# Reports the Authenticode signature of one file. __FILE__ is filled in by vendor-ipc.js.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8

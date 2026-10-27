@@ -1,5 +1,3 @@
-// Game optimizer page (Game tools). Talks to optimizer-ipc.js through window.optimizer (see preload.js).
-// Rates this PC from the hardware scan, then builds in-game setting advice, Windows tweaks and tips. Uses $, esc and toast from app.js.
 (function () {
   'use strict';
   const pg = $('#p-opt');
@@ -25,7 +23,6 @@
   const read = () => { try { return localStorage.getItem(GK) || 'balanced'; } catch { return 'balanced'; } };
   goalEl.value = ['quality', 'balanced', 'fps'].includes(read()) ? read() : 'balanced';
 
-  /* ---------- rating ---------- */
   function gpuInfo(g) {
     const n = g.name, v = g.vram || 0;
     const o = { t: 0, kind: /nvidia|geforce|rtx|gtx/i.test(n) ? 'nv' : /amd|radeon/i.test(n) ? 'amd' : /intel/i.test(n) ? 'intel' : '?', rt: false, series: 0, ig: false };
@@ -52,7 +49,7 @@
       m = /(\d{3})M\b/i.exec(n); o.t = m && +m[1] < 740 ? 1 : 2; o.ig = true;
     } else if (/UHD|Iris|HD Graphics|Radeon\(TM\) Graphics|Radeon Graphics|Vega \d+ Graphics/i.test(n)) { o.t = 1; o.ig = true; }
     if (!o.t) { o.t = v <= 2 ? 1 : v <= 4 ? 2 : v <= 6 ? 3 : v <= 10 ? 4 : 5; o.ig = v < 1; }
-    if (/laptop|mobile|max-q|notebook/i.test(n) && o.t >= 4) o.t--;   // laptop 70/80/90-class chips run well below the desktop ones
+    if (/laptop|mobile|max-q|notebook/i.test(n) && o.t >= 4) o.t--;
     return o;
   }
   function analyze(s) {
@@ -67,7 +64,6 @@
     return { list, gpu, scr, ct, rt, tier, weak: tier < gpu.t ? (ct + 1 === tier ? 'processor' : 'memory') : '' };
   }
 
-  /* ---------- advice ---------- */
   function recs(a, goal) {
     const { gpu, tier } = a, g = gpu.g, G = Math.max(0, ['quality', 'balanced', 'fps'].indexOf(goal));
     const idx = Math.max(0, Math.min(4, tier - 1 + (goal === 'quality' ? 1 : goal === 'fps' ? -1 : 0)));
@@ -113,7 +109,6 @@
     return T;
   }
 
-  /* ---------- drawing ---------- */
   const fmt = n => n >= 1000 ? (n / 1000).toFixed(n % 1000 ? 1 : 0) + ' TB' : n + ' GB';
   const disk = d => (/nvme/i.test(d.bus) ? 'NVMe SSD' : d.type && d.type !== 'Unspecified' ? d.type : d.bus || 'Drive') + ' ' + fmt(d.gb);
   const row = (k, v) => '<div><dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd></div>';
@@ -165,7 +160,6 @@
     return r;
   };
 
-  /* ---------- my games (writes the recommended settings into each game's settings file) ---------- */
   const gaAdd = el('ga-add'), gaApply = el('ga-apply'), gaUndo = el('ga-undo'), gaMsg = el('ga-msg'), gaList = el('ga-list');
   let gm = [], gres = {};
   const gsay = (t, bad) => { gaMsg.className = bad ? 'err' : 'fx'; gaMsg.textContent = t || ''; gaMsg.hidden = !t; };
@@ -218,7 +212,6 @@
     if (g) await gcall(() => api.gamesRemove(g.path));
   });
 
-  /* ---------- actions ---------- */
   async function scanPC() {
     scan.disabled = true; msg.className = 'fx'; msg.textContent = 'Reading your hardware\u2026 this takes a few seconds.';
     let r; try { r = await api.specs(); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
@@ -248,7 +241,6 @@
     const b = e.target.closest('[data-rm]'), p = b && st && st.gpuPrefs[+b.dataset.rm];
     if (p) apiRun(() => api.gpuRemove(p.path), 'Removed');
   });
-  // Sidebar buttons scroll the main pane to a section
   pg.querySelectorAll('[data-j]').forEach(b => b.addEventListener('click', () => {
     const t = document.getElementById(b.dataset.j);
     if (!t || res.hidden) return;

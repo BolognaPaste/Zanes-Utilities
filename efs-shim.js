@@ -1,17 +1,3 @@
-// File System Access shim for the desktop app.
-//
-// index.html scans game folders with the browser's File System Access API (showDirectoryPicker,
-// directory handles, entries(), getFile()). Chromium blocks system folders such as Program Files and
-// will not keep permission between launches, so inside Electron this file replaces the picker with one
-// that goes through the main process (see the efs:* handlers in main.js and window.efs in preload.js).
-//
-// It provides:
-//   window.showDirectoryPicker(opts)  native folder dialog, resolves to a directory handle
-//   window.efsRe(value)               turns handles that came back from IndexedDB into live handles again
-//
-// Handles hold only plain data (kind, name, fsPath) so they survive IndexedDB's structured clone, which
-// is how the page remembers your folders. The methods live on the prototype and are restored by efsRe.
-// In a normal browser window.efs does not exist, so this file does nothing and the browser's own picker is used.
 (function () {
   'use strict';
   const efs = window.efs;
@@ -28,8 +14,8 @@
     constructor(kind, fsPath) {
       this.kind = kind;
       this.name = base(fsPath);
-      this.fsPath = fsPath;   // real path on disk, which the browser API never reveals
-      this.efsHandle = 1;     // marker so efsRe can recognise a stored handle
+      this.fsPath = fsPath;
+      this.efsHandle = 1;
     }
     async queryPermission() { return 'granted'; }
     async requestPermission() { return 'granted'; }
@@ -44,7 +30,6 @@
       const p = this.fsPath, s = await efs.stat(p);
       if (!s) throw fail('NotFoundError', 'A file with that name could not be found.');
       if (s.kind !== 'file') throw fail('TypeMismatchError', 'That entry is not a file.');
-      // The page only reads name, size and text(), so this is not a full File object.
       return { name: this.name, size: s.size, text: () => efs.text(p) };
     }
   }
@@ -65,8 +50,6 @@
     }
   }
 
-  // Walks whatever the page stored (an array of handles, or an array of { h, path }) and rebuilds the handles.
-  // Objects that are not plain data, such as real browser handles, are left alone.
   function revive(v) {
     if (Array.isArray(v)) return v.map(revive);
     if (v && typeof v === 'object') {
@@ -85,7 +68,7 @@
     configurable: true,
     writable: true,
     value: async function showDirectoryPicker(opts) {
-      const p = await efs.pickDir(opts && opts.id);   // the id picks the starting folder, see START in main.js
+      const p = await efs.pickDir(opts && opts.id);
       if (!p) throw fail('AbortError', 'The user aborted a request.');
       return new DirHandle(p);
     }

@@ -1,6 +1,3 @@
-// Manufacturer section of the Driver updater page: graphics, Wi-Fi, Bluetooth and chipset drivers,
-// plus manual-check entries and a link to the PC maker's driver page.
-// Talks to vendor-ipc.js through window.drivers (see preload.js). Uses $ and esc from index.html.
 (function () {
   'use strict';
   const btn = $('#vn-check'), msg = $('#vn-msg'), list = $('#vn-list');

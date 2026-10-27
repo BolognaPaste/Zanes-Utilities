@@ -1,25 +1,3 @@
-// Chat server: lets other people reach the chat hub from a web browser, with no extra packages (Node's own http).
-//
-// It only listens while you have pressed Start on the Test page, and by default only on this PC (127.0.0.1).
-// "Let other devices connect" makes it listen on the network so friends can open http://<your-ip>:<port>.
-// That is plain HTTP, so it is meant for a home network or a private VPN. For friends anywhere on the internet use
-// the internet link (chat-tunnel.js): a tunnel program makes an https:// address that reaches this server, and then
-// the server sees the tunnel's host name (setTunnel below) and accepts requests for it.
-//
-// Live updates use long-polling (the browser asks "anything new?" and the server answers as soon as there is
-// something, or after about 25 seconds with nothing), because tunnels and proxies often hold back streamed
-// responses (Server-Sent Events) but always pass ordinary requests.
-//
-//   GET  /                     the browser chat page (chat-web.html), plus /chat-ui.js /chat-web.js /chat.css
-//   GET  /api/info             server name and whether a password is needed (no login required)
-//   POST /api/join             { name, password } -> { token, me }      or { token } to come back
-//   GET  /api/snapshot         channels, members, who you are            (Authorization: Bearer <token>)
-//   GET  /api/history?ch=&before=
-//   POST /api/send             { ch, text }
-//   POST /api/typing           { ch }
-//   POST /api/delete           { ch, id }
-//   POST /api/connect          -> { sid }   starts a live session (needed before polling)
-//   GET  /api/poll?sid=&ack=   -> { events, n }   waits for news; ack = the last n the browser has processed
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -43,18 +21,18 @@ const HEADERS = {
 };
 const MAX_BODY = 8 * 1024;
 const MAX_CONNS = 150, MAX_PER_USER = 5;
-const POLL_MS = 25000;       // how long an empty poll is held
-const IDLE_MS = 50000;       // a session nobody has polled for this long is dropped (the person shows as offline)
-const QUEUE_MAX = 400;       // events kept for a slow browser before it is told to reload everything
+const POLL_MS = 25000;
+const IDLE_MS = 50000;
+const QUEUE_MAX = 400;
 
 class ChatServer {
   constructor(hub, opts) {
     this.hub = hub;
     this.root = (opts && opts.root) || __dirname;
     this.srv = null;
-    this.conns = new Map();       // session id -> { uid, unsub, queue, n, waiter, seen }
+    this.conns = new Map();
     this.reaper = null;
-    this.tunnelHost = null;       // e.g. "quiet-river-fox.trycloudflare.com" while the internet link is open
+    this.tunnelHost = null;
     this.port = 0;
     this.lan = false;
     this.files = {};
@@ -83,7 +61,7 @@ class ChatServer {
     return new Promise((resolve, reject) => {
       const srv = http.createServer((req, res) => this._handle(req, res));
       srv.headersTimeout = 15000;
-      srv.requestTimeout = 0;            // a poll is held open for up to 25 seconds
+      srv.requestTimeout = 0;
       srv.on('error', err => {
         if (!this.srv) {
           reject(new Error(err.code === 'EADDRINUSE' ? 'Port ' + port + ' is already in use. Pick another one.'
@@ -109,7 +87,6 @@ class ChatServer {
     this.port = 0;
   }
 
-  /* ---------- request handling ---------- */
   _send(res, code, body, type) {
     res.writeHead(code, { ...HEADERS, 'Content-Type': type || 'application/json; charset=utf-8' });
     res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
@@ -119,9 +96,6 @@ class ChatServer {
     this._send(res, known ? err.code : 500, { error: known ? err.message : 'Something went wrong.' });
   }
 
-  // Blocks requests that did not come from a page served by this server: a Host that is not an IP address, "localhost",
-  // this PC's name or the internet link's own address (DNS rebinding), and an Origin that does not match the Host
-  // (another website posting to us).
   _allowed(req) {
     const host = String(req.headers.host || '');
     const name = host.replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase();
@@ -131,8 +105,6 @@ class ChatServer {
     const origin = req.headers.origin;
     return !origin || origin === 'http://' + host || (tunnel && origin === 'https://' + host);
   }
-  // The address used to count wrong passwords. Through the tunnel every request comes from this PC, so the tunnel
-  // program's "real visitor" header is used, but only while the tunnel is open and the request came from this PC.
   _who(req) {
     const a = req.socket.remoteAddress || '?';
     if (this.tunnelHost && (a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1')) {
@@ -203,7 +175,6 @@ class ChatServer {
     }
   }
 
-  /* ---------- live sessions (long-polling) ---------- */
   _connect(user) {
     const mine = [...this.conns.values()].filter(c => c.uid === user.id).length;
     if (this.conns.size >= MAX_CONNS || mine >= MAX_PER_USER) throw new ChatError('Too many open connections.', 429);
@@ -228,7 +199,6 @@ class ChatServer {
     const now = Date.now();
     for (const [sid, c] of this.conns) if (!c.waiter && now - c.seen > IDLE_MS) this._drop(sid);
   }
-  // Answers the poll that is waiting on this session, if any.
   _wake(c, ended) {
     const w = c.waiter;
     if (!w) return;
@@ -247,9 +217,9 @@ class ChatServer {
     const c = this.conns.get(sid);
     if (!c || c.uid !== user.id) throw new ChatError('Session ended.', 410);
     const ack = Number(url.searchParams.get('ack')) || 0;
-    c.queue = c.queue.filter(q => q.n > ack);        // what the browser already has is thrown away
+    c.queue = c.queue.filter(q => q.n > ack);
     c.seen = Date.now();
-    if (c.waiter) this._wake(c);                      // a newer poll replaces an older one that is still waiting
+    if (c.waiter) this._wake(c);
     if (c.queue.length || c.over) {
       const body = { events: c.queue.map(q => q.ev), n: c.n };
       if (c.over) { body.resync = true; c.over = false; }

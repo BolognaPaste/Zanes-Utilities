@@ -1,5 +1,3 @@
-# Searches Windows Update for available, Microsoft-signed driver updates. Needs no admin rights;
-# only installing (install.ps1) does. Nothing is downloaded or installed here.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8

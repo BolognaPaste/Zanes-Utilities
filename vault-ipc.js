@@ -1,26 +1,3 @@
-// Encrypted vault backend: one container file (.zvault) that holds any number of files and folders.
-//
-// Crypto (Node's built-in OpenSSL, no extra packages):
-//   password --scrypt (N=2^18, r=8, p=1, random 32-byte salt)--> key-encryption key
-//   key-encryption key --AES-256-GCM--> unwraps a random 32-byte master key stored in the header
-//   master key --HKDF-SHA256--> one key for file data, one for the index
-//   file data is cut into 1 MiB chunks, each sealed with AES-256-GCM under a fresh random nonce.
-//   The chunk's authenticated data holds the file id, chunk number and a "last chunk" flag, so
-//   chunks cannot be reordered, swapped between files or cut off without the tag check failing.
-//   The index (file names, sizes, dates, where each file sits) is one sealed blob, so names are hidden too.
-//
-// File layout:
-//   0..127     header: magic, version, scrypt settings, salt, wrapped master key, and a small pointer
-//              (offset + length + checksum) to the current index. Bytes 0..53 are authenticated with
-//              the wrapped key; the pointer is the only part that is ever rewritten in place.
-//   128..      file records, then index blobs. Adding files appends records and a new index, syncs the
-//              disk, and only then moves the pointer, so a crash leaves the previous index intact.
-//              Removing files, replacing files or changing the password rewrites the vault into a temp file and swaps it in.
-//              Changing the password also makes a brand-new master key and re-encrypts everything under it, so an
-//              old copy of the vault plus the old password cannot open the vault as it is now.
-//
-// The master key lives only in this process while a vault is unlocked and is wiped on lock. The page
-// never sees keys, and it never chooses paths: every path comes from a native dialog opened here.
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
@@ -30,25 +7,23 @@ const scrypt = promisify(crypto.scrypt);
 
 const MAGIC = Buffer.from('ZVAULT');
 const VERSION = 1;
-const LOGN = 18, R = 8, P = 1;          // scrypt: about 256 MB of memory, roughly a second on a desktop PC
+const LOGN = 18, R = 8, P = 1;
 const HDR = 128, AAD_LEN = 54, PTR_AT = 112;
-const CH = 1024 * 1024;                 // plaintext bytes per chunk
-const OVER = 28;                        // nonce (12) + tag (16) added to each chunk
+const CH = 1024 * 1024;
+const OVER = 28;
 const MAX_INDEX = 64 * 1024 * 1024;
-const IDLE_MS = 10 * 60 * 1000;         // locks itself after 10 idle minutes
+const IDLE_MS = 10 * 60 * 1000;
 const IDX_AAD = Buffer.from('zvault index v1');
 
-// Length alone lets "aaaaaaaaaaaa" through, so this also turns away the most obviously guessable choices.
-// It is a safety net, not a strength meter: a passphrase of several unrelated words is still the goal.
 const COMMON = /^(?:password|passw0rd|qwerty|qwertyuiop|letmein|welcome|iloveyou|admin|administrator|abc123|monkey|dragon|football|baseball|master|shadow|login|princess|sunshine|trustno1|zaq12wsx|asdfgh|asdfghjkl|zxcvbn|zxcvbnm|changeme|secret|vault|zvault)+[0-9!@#$%^&*._-]{0,8}$/;
 function weakPassword(pw) {
   const s = pw.normalize('NFKC'), low = s.toLowerCase().replace(/\s+/g, '');
-  if (new Set(s).size < 6) return true;                      // a few characters repeated
-  if (/^[0-9\s]+$/.test(s)) return true;                     // digits only
-  if (COMMON.test(low)) return true;                         // a common word, repeated or with a few digits on the end
+  if (new Set(s).size < 6) return true;
+  if (/^[0-9\s]+$/.test(s)) return true;
+  if (COMMON.test(low)) return true;
   let step = 0;
   for (let i = 1; i < low.length; i++) { const d = low.charCodeAt(i) - low.charCodeAt(i - 1); if (d === 1 || d === -1) step++; }
-  return step >= (low.length - 1) * 0.8;                     // abcdefghijkl, 987654321098
+  return step >= (low.length - 1) * 0.8;
 }
 
 const recBytes = size => size === 0 ? 0 : size + Math.ceil(size / CH) * OVER;
@@ -81,7 +56,7 @@ const chunkAad = (id, i, last) => { const b = Buffer.alloc(21); id.copy(b, 0); b
 function wrap(key, master, h) {
   const c = crypto.createCipheriv('aes-256-gcm', key, h.subarray(42, 54), { authTagLength: 16 });
   c.setAAD(h.subarray(0, AAD_LEN));
-  return Buffer.concat([c.update(master), c.final(), c.getAuthTag()]);   // 32 + 16 bytes
+  return Buffer.concat([c.update(master), c.final(), c.getAuthTag()]);
 }
 function unwrap(key, h) {
   const d = crypto.createDecipheriv('aes-256-gcm', key, h.subarray(42, 54), { authTagLength: 16 });
@@ -129,7 +104,6 @@ function parseIndex(text, fileSize) {
 }
 const indexText = files => JSON.stringify({ v: 1, files: files.map(({ id, name, size, mtime, off }) => ({ id, name, size, mtime, off })) });
 
-// Reads the header, unlocks the master key and loads the index. Throws friendly errors.
 async function openVault(file, password) {
   const fh = await fsp.open(file, 'r');
   try {
@@ -158,7 +132,6 @@ async function openVault(file, password) {
   } finally { await fh.close(); }
 }
 
-// Windows-safe relative path for extraction. Never lets a stored name climb out of the chosen folder.
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 function safeParts(name) {
   return name.split('/').map(p => {
@@ -219,8 +192,6 @@ function register(ipcMain, getWin, { dialog }) {
     return v;
   };
 
-  // Writes header + everything to a temp file next to the vault, syncs it, then swaps it in.
-  // With rekey = { dk, ik }, every chunk is decrypted with the current keys and sealed again under the new ones.
   async function rewrite(keep, head, rekey) {
     const tmp = S.file + '.tmp-' + crypto.randomBytes(4).toString('hex');
     const src = await fsp.open(S.file, 'r');
@@ -393,7 +364,7 @@ function register(ipcMain, getWin, { dialog }) {
           added.push({ id: id.toString('hex'), name: it.name, size, mtime: Math.round(it.mtime), off });
         } catch (e) {
           if (e.stopped) throw e;
-          pos = off;   // the next file overwrites whatever part of this one was written
+          pos = off;
           failed.push({ path: it.abs, error: nice(e) });
         } finally { if (src) await src.close(); }
       }
@@ -417,7 +388,7 @@ function register(ipcMain, getWin, { dialog }) {
       if (e.stopped) return { ok: false, declined: true, error: 'Stopped. Nothing was added.' };
       throw e;
     } finally {
-      if (!committed) { try { await fh.truncate(start); } catch {} }   // new data never became part of the vault
+      if (!committed) { try { await fh.truncate(start); } catch {} }
       await fh.close();
     }
   }
@@ -425,8 +396,6 @@ function register(ipcMain, getWin, { dialog }) {
   ipcMain.handle('vlt:add', (_e, req) => guard(async () => {
     const r = await addFiles(req);
     if (r.ok && r.data && r.data.replaced > 0) {
-      // Replaced files leave their old encrypted version behind, so rewrite the vault to drop them.
-      // If that fails the new files are still safely added; the old versions just stay until the next rewrite.
       try { const x = await rewrite(S.index.files, S.head); S.head = x.head; S.index = { files: x.files }; r.data.vault = view(); } catch {}
     }
     return r;
@@ -506,7 +475,6 @@ function register(ipcMain, getWin, { dialog }) {
 
   ipcMain.handle('vlt:passwd', (_e, req) => guard(async () => {
     const oldPw = pwOk(req && req.oldPassword, false), newPw = pwOk(req && req.newPassword, true);
-    // Prove the current password again before changing anything.
     const k0 = await kek(oldPw, S.head.subarray(10, 42), S.head[7]);
     try {
       const m = unwrap(k0, S.head);
@@ -516,8 +484,6 @@ function register(ipcMain, getWin, { dialog }) {
     } catch { return { ok: false, error: 'The current password is wrong.' }; }
     finally { k0.fill(0); }
 
-    // A new password gets a new master key too. Everything is re-encrypted under it, so an old copy of the
-    // vault together with the old password can no longer open the vault as it is now.
     const head = Buffer.from(S.head);
     crypto.randomBytes(32).copy(head, 10);
     crypto.randomBytes(12).copy(head, 42);
@@ -543,4 +509,4 @@ function register(ipcMain, getWin, { dialog }) {
   }));
 }
 
-module.exports = { register };
+module.exports = { register, _test: { weakPassword, safeParts, recBytes, seal, unseal, chunkAad, wrap, unwrap, ptrBuf, parseIndex, indexText, HDR, OVER, CH } };

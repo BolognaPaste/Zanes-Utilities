@@ -1,11 +1,18 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Subscribes to a channel and returns the function that unsubscribes.
 const on = channel => cb => {
   const h = (_e, m) => cb(m);
   ipcRenderer.on(channel, h);
   return () => ipcRenderer.removeListener(channel, h);
 };
+
+contextBridge.exposeInMainWorld('appTools', {
+  load: tab => ipcRenderer.invoke('app:loadTool', tab)
+});
+
+contextBridge.exposeInMainWorld('appDiag', {
+  exportBundle: () => ipcRenderer.invoke('app:exportDiagnostics')
+});
 
 contextBridge.exposeInMainWorld('efs', {
   pickDir: id => ipcRenderer.invoke('efs:pick', id),
@@ -168,15 +175,15 @@ contextBridge.exposeInMainWorld('mumble', {
 });
 
 
-// Encrypted storage for the page's localStorage (secure-ls.js uses this; the data lives in secure-store.js).
 contextBridge.exposeInMainWorld('secureStore', {
   load: () => ipcRenderer.sendSync('store:load'),
   importAll: data => ipcRenderer.sendSync('store:import', { data }),
   send: batch => ipcRenderer.send('store:ops', batch),
-  status: () => ipcRenderer.invoke('store:status')
+  status: () => ipcRenderer.invoke('store:status'),
+  pwEnable: (password, current) => ipcRenderer.invoke('store:pwEnable', { password, current }),
+  pwDisable: current => ipcRenderer.invoke('store:pwDisable', { current })
 });
 
-// App lock. The page asks once, before it is drawn, whether the app starts locked, so nothing flashes up first.
 let lockStart = false;
 try { const r = ipcRenderer.sendSync('lock:initial'); lockStart = !!(r && r.startLocked); } catch {}
 contextBridge.exposeInMainWorld('appLock', {

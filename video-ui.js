@@ -1,9 +1,3 @@
-// Local videos section of the Media player page (shown with the server address form).
-// Talks to video-ipc.js through window.localVideos (see preload.js). Uses $, esc and toast from index.html.
-//
-// Every movie gets a header image. In order of preference: a wide image next to the file (banner,
-// fanart, landscape), a poster, a Windows thumbnail of the video, and finally a coloured tile with
-// the title's initials. A clearlogo/logo image next to the file is laid over the header.
 (function () {
   'use strict';
   const sec = $('#lv');
@@ -23,7 +17,7 @@
     return;
   }
 
-  const fixed = new Map();   // video path -> converted copy with playable audio
+  const fixed = new Map();
   let fixing = false, offFix = null;
   let dir = getDir(), files = [], shown = [], cur = '', trunc = false, busy = false, err = '', mode = getMode();
 
@@ -35,7 +29,6 @@
   const fmt = n => n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n >= 1048576 ? Math.round(n / 1048576) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B';
   const parts = rel => { const a = rel.split(/[\\/]/); return { name: a.pop(), folder: a.join(' \\ ') }; };
 
-  /* Movie names: "The.Matrix.1999.1080p.BluRay.x264.mkv" -> "The Matrix", 1999 */
   const TAGS = /\b(2160p|1080p|720p|480p|4k|uhd|bluray|blu-ray|brrip|bdrip|web-?dl|webrip|hdtv|dvdrip|x26[45]|h\.?26[45]|hevc|hdr10?|remux|proper|extended|unrated|imax)\b/i;
   function pretty(file) {
     let s = file.replace(/\.[^.]+$/, '').replace(/[._]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -51,8 +44,7 @@
   const initials = t => t.split(/\s+/).filter(Boolean).slice(0, 2).map(w => [...w][0]).join('').toUpperCase() || '?';
   const tint = t => { let h = 0; for (const c of t) h = (h * 31 + c.codePointAt(0)) >>> 0; return 'hsl(' + (h % 360) + ' 28% 24%)'; };
 
-  /* Header art: sidecar image first, then the Windows thumbnail (made on demand, a few at a time) */
-  const thumbs = new Map();   // video path -> thumbnail file, or null when none could be made
+  const thumbs = new Map();
   const pending = new Set(), queue = [];
   let active = 0, io = null;
 
@@ -100,7 +92,6 @@
     queue.length = 0;
   }
 
-  // Only ask Windows for thumbnails of cards that are (nearly) on screen.
   function watch() {
     if (io) io.disconnect();
     const need = list.querySelectorAll('.lvh[data-need]');
@@ -111,7 +102,6 @@
     need.forEach(h => io.observe(h));
   }
 
-  // A picture that fails to load falls back to the next choice instead of showing a broken icon.
   list.addEventListener('error', e => {
     const im = e.target;
     if (!(im instanceof HTMLImageElement)) return;
@@ -166,7 +156,6 @@
     syncNav();
   }
 
-  // Playing a movie only moves the highlight, so the pictures are not reloaded.
   function mark() {
     list.querySelectorAll('.lvi').forEach(b => {
       const f = shown[+b.dataset.i];
@@ -207,7 +196,7 @@
     box.hidden = false;
     const art = headerSrc(f);
     if (art) vid.poster = fileUrl(art); else vid.removeAttribute('poster');
-    vid.muted = false;   // keep the volume the person set
+    vid.muted = false;
     vid.src = fileUrl(fixed.get(f.path) || f.path);
     const pr = vid.play();
     if (pr && pr.catch) pr.catch(() => {});
@@ -259,7 +248,7 @@
     try { r = await api.fixAudio(path); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
     if (offFix) { offFix(); offFix = null; }
     fixing = false;
-    if (cur !== path) return;               // another video was chosen meanwhile
+    if (cur !== path) return;
     if (!r || !r.ok) {
       msg.textContent = (r && r.error) || 'The audio could not be converted.';
       return;
@@ -273,8 +262,6 @@
     vid.src = fileUrl(r.data);
   }
 
-  // Chromium (inside Electron) cannot decode some audio formats, mainly AC-3/E-AC-3/DTS/TrueHD in
-  // MKV and MP4 files. The picture plays but nothing is heard. Detect that and say so.
   let audioTimer = 0;
   vid.addEventListener('playing', () => {
     clearTimeout(audioTimer);
@@ -300,7 +287,7 @@
     scan();
   });
   re.addEventListener('click', () => {
-    for (const [k, v] of thumbs) if (v === null) thumbs.delete(k);   // Refresh also retries missing thumbnails
+    for (const [k, v] of thumbs) if (v === null) thumbs.delete(k);
     scan();
   });
   q.addEventListener('input', render);
@@ -320,7 +307,6 @@
     else { vid.pause(); toast('Opened in your default player'); }
   });
 
-  // Called by the Media player page: refresh the list when the section is shown, pause when it is hidden.
   window.lvEnter = () => { dir = getDir(); if (dir) scan(); else render(); };
   window.lvPause = () => { vid.pause(); };
   render();

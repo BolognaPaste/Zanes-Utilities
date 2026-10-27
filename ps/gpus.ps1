@@ -1,5 +1,3 @@
-# Lists the graphics adapters in this PC, for the NVIDIA / AMD / Intel manufacturer check.
-# Needs no admin rights.
 $ErrorActionPreference = 'SilentlyContinue'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8

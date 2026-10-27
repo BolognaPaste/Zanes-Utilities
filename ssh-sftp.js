@@ -1,35 +1,21 @@
-// File transfer (SFTP) for the SSH tab. Runs in the main process and rides on the SSH connection you already
-// signed in with (a second channel on the same connection, so there is no second login).
-//
-// What it guarantees:
-//  - The page never sees or chooses a path on this PC. Where files are saved and which files are sent are
-//    picked in native dialogs that only this process can open.
-//  - File names that come from the server are treated as untrusted. They are cleaned so a hostile server
-//    cannot write outside the folder you chose (no "..\..\", no drive letters, no reserved Windows names).
-//  - Nothing on this PC is ever overwritten: a download that would collide gets "name (1)" instead.
-//    Replacing something on the server, or deleting, always asks first in a native dialog.
-//  - Shortcuts (symbolic links) inside a folder are skipped, so a transfer cannot loop or leave the folder.
-//  - Downloads go to "name.part" and are renamed only when complete, so a half-finished file never looks real.
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 
-const MAX_ITEMS = 50000;       // files + folders in one transfer
+const MAX_ITEMS = 50000;
 const MAX_DEPTH = 40;
-const MAX_LIST = 5000;         // rows shown for one folder
-const MAX_NAMES = 2000;        // items chosen at once
-const STEP_MS = 120;           // progress messages are sent at most this often
+const MAX_LIST = 5000;
+const MAX_NAMES = 2000;
+const STEP_MS = 120;
 
 const S_IFMT = 0o170000, S_IFDIR = 0o040000, S_IFREG = 0o100000, S_IFLNK = 0o120000;
 const kindOf = mode => { const t = (mode | 0) & S_IFMT; return t === S_IFDIR ? 'dir' : t === S_IFREG ? 'file' : t === S_IFLNK ? 'link' : 'other'; };
 
-// Wraps an ssh2 callback-style method (sftp.readdir(path, cb) ...) as a promise.
 const call = (o, m, ...a) => new Promise((res, rej) => { try { o[m](...a, (e, r) => (e ? rej(e) : res(r))); } catch (e) { rej(e); } });
 const pj = (...a) => path.posix.join(...a);
 const okName = n => typeof n === 'string' && n.length > 0 && n.length <= 255 && !/[\/\u0000]/.test(n) && n !== '.' && n !== '..';
 const okDir = d => typeof d === 'string' && d.startsWith('/') && d.length <= 4096 && !d.includes('\u0000');
 const cancelErr = () => Object.assign(new Error('Cancelled.'), { cancelled: true });
-// Removes a half-written local file. On Windows the file can stay locked for a moment, so it tries twice.
 async function rmQuiet(f) {
   try { await fsp.unlink(f); } catch (e) { if (e.code === 'ENOENT') return; await new Promise(r => setTimeout(r, 300)); try { await fsp.unlink(f); } catch {} }
 }
@@ -53,7 +39,6 @@ function explain(e) {
   return m || 'The operation failed.';
 }
 
-// Makes a name that came from the server safe to use as a Windows file name.
 function safeLocalName(n) {
   let s = String(n).replace(/[\u0000-\u001f<>:"/\\|?*]/g, '_').replace(/[. ]+$/, '');
   if (!s || s === '.' || s === '..') s = '_';
@@ -67,7 +52,6 @@ function withSuffix(name, n) {
 }
 const inside = (root, p) => { const r = path.resolve(root), q = path.resolve(p); return q === r || q.startsWith(r.endsWith(path.sep) ? r : r + path.sep); };
 
-/* ---------- browsing ---------- */
 async function listDir(sftp, want) {
   const dir = await call(sftp, 'realpath', want || '.');
   if (!okDir(dir)) throw new Error('The server gave a folder path this app cannot use.');
@@ -75,7 +59,7 @@ async function listDir(sftp, want) {
   const entries = [];
   for (const it of raw || []) {
     const name = it && it.filename;
-    if (!okName(name)) continue;                       // also drops "." and ".."
+    if (!okName(name)) continue;
     const a = it.attrs || {};
     let kind = kindOf(a.mode);
     if (!a.mode && typeof it.longname === 'string') { const c = it.longname[0]; kind = c === 'd' ? 'dir' : c === '-' ? 'file' : c === 'l' ? 'link' : 'other'; }
@@ -87,7 +71,6 @@ async function listDir(sftp, want) {
     return da - db || a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
   });
   entries.length = Math.min(entries.length, MAX_LIST);
-  // A shortcut is shown as what it points to, so a link to a folder can be opened.
   const links = entries.filter(e => e.kind === 'link').slice(0, 300);
   await Promise.all(links.map(async e => {
     try { const st = await call(sftp, 'stat', pj(dir, e.name)); e.target = kindOf(st.mode); e.size = Number(st.size) || 0; } catch { e.target = 'broken'; }
@@ -99,7 +82,6 @@ async function listDir(sftp, want) {
   return { path: dir, entries, truncated };
 }
 
-/* ---------- a running transfer ---------- */
 function newTransfer(op, emit) {
   const x = { op, cancelled: false, done: 0, total: 0, i: 0, n: 0, file: '', phase: 'scan', last: 0, partial: null };
   x.aborted = new Promise((_, rej) => { x.abort = () => rej(cancelErr()); });
@@ -111,7 +93,6 @@ function newTransfer(op, emit) {
     x.last = now;
     emit({ t: 'xfer', state: 'run', op, phase: x.phase, file: x.file, i: x.i, n: x.n, done: x.done, total: x.total });
   };
-  // Runs one operation but gives up at once when the transfer is cancelled.
   x.guard = p => Promise.race([p, x.aborted]);
   return x;
 }
@@ -125,9 +106,8 @@ function fastCopy(x, sftp, method, from, to, base) {
   }));
 }
 
-/* ---------- download ---------- */
 async function scanRemote(sftp, dir, names, x) {
-  const items = [];             // { name, parent (remote path or null), remote, kind, size }
+  const items = [];
   let skipped = 0;
   const add = it => { items.push(it); if (items.length > MAX_ITEMS) throw new Error('That is more than ' + MAX_ITEMS + ' files and folders. Choose fewer, or a smaller folder.'); };
   async function walk(rdir, depth) {
@@ -140,7 +120,7 @@ async function scanRemote(sftp, dir, names, x) {
       const a = it.attrs || {}, k = kindOf(a.mode), remote = pj(rdir, name);
       if (k === 'dir') { add({ name, parent: rdir, remote, kind: 'dir', size: 0 }); await walk(remote, depth + 1); }
       else if (k === 'file') add({ name, parent: rdir, remote, kind: 'file', size: Number(a.size) || 0 });
-      else skipped++;                                   // shortcuts and special files
+      else skipped++;
     }
   }
   for (const name of names) {
@@ -156,7 +136,6 @@ async function scanRemote(sftp, dir, names, x) {
   return { items, skipped };
 }
 
-// Decides the local path of every item. Top-level names never replace anything that exists.
 async function planLocal(items, destRoot) {
   const used = new Set(), localOf = new Map();
   for (const it of items) {
@@ -212,9 +191,8 @@ async function runDownload(sftp, { dir, names, destRoot }, x, isDead) {
   return res;
 }
 
-/* ---------- upload ---------- */
 async function scanLocal(paths, x) {
-  const items = [];             // { name, parentLocal (local path or null), local, kind, size }
+  const items = [];
   let skipped = 0;
   const add = it => { items.push(it); if (items.length > MAX_ITEMS) throw new Error('That is more than ' + MAX_ITEMS + ' files and folders. Choose fewer, or a smaller folder.'); };
   async function walk(ldir, depth) {
@@ -249,7 +227,6 @@ async function ensureRemoteDir(sftp, p) {
 
 async function remoteExists(sftp, p) { try { await call(sftp, 'stat', p); return true; } catch { return false; } }
 
-// Returns the plan, or { items } after "existing" has been shown to the person by the caller.
 async function planUpload(sftp, dir, paths, x) {
   const { items, skipped } = await scanLocal(paths, x);
   const existing = [];
@@ -284,8 +261,6 @@ async function runUpload(sftp, { dir, items, skipped }, x, isDead, getSftp) {
     } catch (e) {
       if (it.kind === 'dir') failedDirs.add(it.local);
       if (e.cancelled || x.cancelled) break;
-      // A copy that failed part-way leaves a broken file on the server. Remove it, unless the server refused to
-      // open it at all (then whatever is there was not written by us).
       if (it.kind === 'file' && x.partial && e.code !== 3) { try { await call(sftp, 'unlink', x.partial); } catch {} }
       x.partial = null;
       res.failed.push({ name: path.relative(path.dirname(items[0].local), it.local) || it.name, error: explain(e) });
@@ -293,14 +268,12 @@ async function runUpload(sftp, { dir, items, skipped }, x, isDead, getSftp) {
     }
   }
   res.cancelled = x.cancelled;
-  // A cancelled upload leaves a partly written file on the server; remove it using a fresh channel.
   if (x.cancelled && x.partial && !isDead()) {
     try { const s2 = await getSftp(); await call(s2, 'unlink', x.partial); } catch {}
   }
   return res;
 }
 
-/* ---------- small operations ---------- */
 async function removeItems(sftp, dir, names) {
   const res = { removed: 0, failed: [] };
   for (const name of names) {
@@ -308,7 +281,7 @@ async function removeItems(sftp, dir, names) {
     try {
       const st = await call(sftp, 'lstat', pj(dir, name));
       isDir = kindOf(st.mode) === 'dir';
-      if (isDir) await call(sftp, 'rmdir', pj(dir, name));       // only empty folders
+      if (isDir) await call(sftp, 'rmdir', pj(dir, name));
       else await call(sftp, 'unlink', pj(dir, name));
       res.removed++;
     } catch (e) {
@@ -318,7 +291,6 @@ async function removeItems(sftp, dir, names) {
   return res;
 }
 
-/* ---------- wiring to the SSH sessions ---------- */
 function register(ipcMain, getWin, { dialog, send, getSession }) {
   const live = req => { const s = req && getSession(String((req && req.id) || '')); return s && s.stream && !s.closed ? s : null; };
   const NOPE = { ok: false, error: 'This connection is not open.' };
@@ -330,7 +302,7 @@ function register(ipcMain, getWin, { dialog, send, getSession }) {
       s.conn.sftp((err, sftp) => {
         s.sftpP = null;
         if (err) return rej(err);
-        sftp.on('error', () => {});                                   // an unhandled "error" would crash the app
+        sftp.on('error', () => {});
         sftp.on('close', () => { if (s.sftp === sftp) s.sftp = null; });
         s.sftp = sftp;
         res(sftp);
@@ -386,7 +358,6 @@ function register(ipcMain, getWin, { dialog, send, getSession }) {
     try { return { ok: true, data: await removeItems(await getSftp(s), dir, list) }; } catch (e) { return { ok: false, error: explain(e) }; }
   });
 
-  // Runs one transfer at a time per connection. The cleanup in "finally" always clears the busy flag.
   async function transfer(s, op, body) {
     if (s.xfer) return { ok: false, error: 'A transfer is already running on this connection.' };
     const x = newTransfer(op, send2(s));
@@ -398,7 +369,7 @@ function register(ipcMain, getWin, { dialog, send, getSession }) {
       if (e && e.cancelled) return { ok: true, data: { op, files: 0, dirs: 0, bytes: 0, failed: [], skipped: 0, cancelled: true } };
       return { ok: false, error: explain(e) };
     } finally {
-      if (x.cancelled) dropSftp(s);        // a cancelled copy leaves the channel in an unknown state; a new one opens next time
+      if (x.cancelled) dropSftp(s);
       s.xfer = null;
       send({ id: s.id, t: 'xfer', state: 'end', op });
     }
@@ -447,12 +418,11 @@ function register(ipcMain, getWin, { dialog, send, getSession }) {
 
   ipcMain.handle('ssh:xcancel', (_e, req) => {
     const s = req && getSession(String(req.id || ''));
-    if (s && s.xfer) { s.xfer.cancel(); dropSftp(s); return { ok: true }; }   // closing the channel stops the copy in flight
+    if (s && s.xfer) { s.xfer.cancel(); dropSftp(s); return { ok: true }; }
     return { ok: false };
   });
 
   return {
-    // Called when a connection ends: stops any copy and closes the file channel.
     closed(id) {
       const s = getSession(id);
       if (!s) return;

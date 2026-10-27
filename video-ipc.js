@@ -1,11 +1,3 @@
-// Local videos backend: lets the user pick a folder, lists the video files inside it (with
-// subfolders), and can hand a file to the default player when the app cannot play it itself.
-// The page plays files directly from disk, so nothing is copied or uploaded.
-//
-// Movie art: while scanning, artwork that sits next to a video is picked up too (Jellyfin, Kodi and
-// Plex naming: poster.jpg, banner.jpg, fanart.jpg, clearlogo.png, "Movie (2020)-poster.jpg", ...).
-// Videos without artwork get a thumbnail from Windows (the same one File Explorer shows), which is
-// cached in the app's data folder so it is only made once per file.
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
@@ -18,15 +10,12 @@ const SKIP = /^(\$recycle\.bin|system volume information|node_modules)$/i;
 const MAX_FILES = 5000, MAX_DEPTH = 8;
 
 const EXT = ['jpg', 'jpeg', 'png', 'webp'];
-// Which file names count as which kind of art. Earlier names win.
 const ART = {
-  wide: ['landscape', 'banner', 'thumb', 'fanart', 'backdrop', 'background'], // header image
+  wide: ['landscape', 'banner', 'thumb', 'fanart', 'backdrop', 'background'],
   poster: ['poster', 'folder', 'cover', 'movie', 'default'],
   logo: ['clearlogo', 'logo']
 };
 
-// images: lower-case file name -> real file name, for one folder.
-// A bare "poster.jpg" only belongs to a video when it is the only video in its folder.
 function findArt(images, base, single) {
   const out = {};
   for (const [kind, words] of Object.entries(ART)) {
@@ -43,10 +32,6 @@ function findArt(images, base, single) {
   return out;
 }
 
-// Finds the ffmpeg program. Looked for, in order: the ffmpeg-static npm package (unpacked from the
-// asar archive when packaged), ffmpeg.exe copied into the app's resources folder by the build, and
-// finally an ffmpeg.exe the user dropped into the app's data folder.
-// Returns { file } when found, otherwise { tried: [...] } so the error message can say what was checked.
 function findFfmpeg(app) {
   const tried = [], cands = [];
   const unpack = p => p.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
@@ -100,7 +85,6 @@ async function walk(root) {
 }
 
 function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
-  // Only files from the last scan can be thumbnailed, so the page cannot ask for arbitrary files.
   let known = new Set();
   const failed = new Set();
   const cacheDir = () => path.join(app.getPath('userData'), 'video-thumbs');
@@ -108,7 +92,6 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
   const send = m => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send('vid:progress', m); };
   let fixProc = null, fixCancelled = false;
 
-  // Converted copies are only a cache: remove the ones not touched for two weeks (a little after start-up, not during it).
   const cleanOld = async () => {
     try {
       const now = Date.now();
@@ -139,7 +122,6 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
     catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
   });
 
-  // Makes (or reuses) a JPEG thumbnail for one video and returns the path of that JPEG.
   ipcMain.handle('vid:thumb', async (_e, file) => {
     if (typeof file !== 'string' || !known.has(file)) return { ok: false, error: 'That file was not in the last scan.' };
     if (failed.has(file)) return { ok: false, error: 'No thumbnail is available.' };
@@ -160,8 +142,6 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
     }
   });
 
-  // Makes a copy of one video whose audio Chromium can play: the picture is copied untouched (fast),
-  // the sound is converted to AAC stereo by the bundled ffmpeg. The copy is cached and reused.
   ipcMain.handle('vid:fixaudio', async (_e, file) => {
     if (typeof file !== 'string' || !known.has(file)) return { ok: false, error: 'That file was not in the last scan.' };
     if (fixProc) return { ok: false, error: 'Another audio conversion is already running.' };
@@ -214,7 +194,6 @@ function register(ipcMain, getWin, { dialog, shell, app, nativeImage }) {
 
   ipcMain.handle('vid:fixcancel', () => { fixCancelled = true; if (fixProc) fixProc.kill(); return true; });
 
-  // Opens one video in the default player. Only video files from the last scan are allowed, never programs.
   ipcMain.handle('vid:open', async (_e, file) => {
     if (typeof file !== 'string' || !known.has(file) || !VIDEO.test(file) || !fs.existsSync(file)) return 'That file cannot be opened.';
     return shell.openPath(file);

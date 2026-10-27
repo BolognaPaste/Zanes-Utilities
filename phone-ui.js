@@ -1,7 +1,3 @@
-// Phone Link page: use and control an Android phone over USB with scrcpy.
-// Talks to phone-ipc.js through window.phone (see preload.js). Uses $, esc and toast from index.html / app.js.
-// scrcpy shows the phone in its own window; this page finds the phone, starts and stops scrcpy and
-// offers the quick buttons, screenshots and app installs that use adb.
 (function () {
   'use strict';
   const pg = $('#p-phone');
@@ -14,7 +10,7 @@
 
   const SEL = { size: '#ph-size', rate: '#ph-rate', fps: '#ph-fps' };
   const CHK = { audio: '#ph-audio', awake: '#ph-awake', off: '#ph-off', touch: '#ph-touch', top: '#ph-top', full: '#ph-full', view: '#ph-view', poff: '#ph-poff', rec: '#ph-rec' };
-  const NEEDS_CONTROL = ['awake', 'off', 'touch', 'poff'];   // scrcpy refuses these in view-only mode
+  const NEEDS_CONTROL = ['awake', 'off', 'touch', 'poff'];
   const DEF = { size: 1920, rate: 8, fps: 60, audio: true, awake: true, off: false, touch: false, top: false, full: false, view: false, poff: false, rec: false };
   const OK = 'gca-ph-opts', DK = 'gca-ph-dev';
   const STATE = { device: ['Ready', 'dvok'], unauthorized: ['Needs permission', 'dvw'], offline: ['Offline', 'dvw'] };
@@ -36,7 +32,6 @@
   const read = k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
   const write = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
-  /* Options are remembered in this app only */
   function loadOpts() {
     let s = {};
     try { s = JSON.parse(read(OK)) || {}; } catch {}
@@ -216,8 +211,6 @@
   shot.addEventListener('click', screenshot);
   apk.addEventListener('click', install);
 
-  // Called by the page navigation: look for phones while the page is open, stop looking when it is not.
-  // A running scrcpy window keeps going either way.
   window.phEnter = async () => {
     if (await status()) { await poll(); }
     clearInterval(timer);

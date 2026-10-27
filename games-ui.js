@@ -1,6 +1,3 @@
-// Web games page: browse GameMonetize's free HTML5 games and play them inside the app.
-// Talks to games-ipc.js through window.webGames (see preload.js). Uses $, esc from index.html.
-// Games run in a sandboxed frame: no access to this page, no pop-ups, no top-level navigation.
 (function () {
   'use strict';
   const sec = $('#gm-sec');
@@ -72,7 +69,6 @@
     box.scrollIntoView({ block: 'nearest' });
   }
 
-  // A hidden frame keeps running and playing sound, so closing the game really unloads it.
   function stop() {
     frame.src = 'about:blank';
     box.hidden = true;
@@ -99,7 +95,6 @@
     if (!r || !r.ok) { msg.className = 'err'; msg.textContent = (r && r.error) || 'Coolmath Games could not be opened.'; }
   });
 
-  // Called by the page navigation: load on first visit, unload the game when leaving.
   window.gmEnter = () => { if (!loaded && !busy) load(); };
   window.gmPause = stop;
 })();

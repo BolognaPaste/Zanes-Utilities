@@ -1,9 +1,3 @@
-// Test page: a Discord-style chat that runs from this PC.
-// Talks to chat-ipc.js through window.chat (see preload.js) and uses the shared GUI in chat-ui.js.
-// Uses $, esc and toast from index.html / app.js.
-//
-// You chat as the host. The server settings panel (gear button) is where you start the network server so other
-// people can join from a browser, set a join password, rename things and manage channels.
 (function () {
   'use strict';
   const pg = $('#p-test');
@@ -16,7 +10,6 @@
     return;
   }
 
-  // The backend answers { ok, v } or { ok, error }; the GUI wants plain promises that resolve or throw.
   const un = async p => {
     const r = await p;
     if (!r || !r.ok) throw new Error((r && r.error) || 'Something went wrong.');
@@ -37,7 +30,6 @@
     }
   };
 
-  /* ---------- server settings panel ---------- */
   function openSettings(ui) {
     if (ui.panelOpen()) { ui.closePanel(); return; }
     ui.openPanel('Server settings', body => buildPanel(body, ui));
@@ -74,7 +66,6 @@
       return h;
     }
     let lastStatus = '';
-    // Only redraws when something changed, so a button is never replaced between mouse-down and mouse-up.
     function renderStatus() {
       const el = sec('status');
       if (!el || !st) return;
@@ -84,7 +75,7 @@
 
     function renderHost() {
       const run = st.server.running, t = st.tunnel;
-      const was = sec('host').querySelector('details.cht-more');      // keep the setup steps open if they were open
+      const was = sec('host').querySelector('details.cht-more');
       const keepOpen = (was && was.open) || (!t.bin && t.want);
       lastStatus = '';
       sec('host').innerHTML =
@@ -112,7 +103,6 @@
           (st.hasPassword ? '<button type="button" class="cht-btn alt" data-k="pwclear">Remove</button>' : '') + '</div></div>';
       renderStatus();
     }
-    // Voice chat through Mumble (a separate program, opened in its own window). See mumble-ipc.js.
     const vkey = () => JSON.stringify([vs.running, vs.client, vs.server, vs.error, vs.hasPassword, vs.urls]);
     function renderVoice() {
       const el = sec('voice');
@@ -250,18 +240,13 @@
       renderHost(); renderNames(); renderChs();
       if (vapi) un(vapi.status()).then(v => { vs = v; renderVoice(); }).catch(() => { vs = { running: false, port: 64738, lan: false, hasPassword: false, urls: [], error: '' }; renderVoice(); });
       else renderVoice();
-      // Keeps the "connected" count current without touching what you are typing in the boxes below it.
       timer = setInterval(async () => { try { await refresh(); const b = body.querySelector('[data-k="toggle"]'); if (b && !b.disabled && b.textContent.startsWith('Stop') !== st.server.running) renderHost(); else renderStatus(); } catch {}
-        // Notices a voice server that stopped on its own, without redrawing while a box is being typed in.
         if (vapi && vs) { try { const v = await un(vapi.status()); if (JSON.stringify([v.running, v.client, v.server, v.error, v.hasPassword, v.urls]) !== lastVoice) { vs = v; if (!body.querySelector('[data-k="vpw"]:focus, [data-k="vport"]:focus, [data-k="vsu"]:focus')) renderVoice(); } } catch {} }
       }, 2000);
     }).catch(fail);
     return () => { clearInterval(timer); off(); };
   }
 
-  /* ---------- joining a friend's server (from this app instead of a browser) ---------- */
-  // The connection itself lives in the app's main process (chat-remote.js). Here: a small bar above the chat, a join
-  // form, and a second adapter that sends everything to the friend's server instead of this PC's own chat.
   const rlisteners = new Set();
   const radapter = {
     init: () => un(api.remoteSnapshot()),
@@ -274,7 +259,7 @@
   const canJoin = !!(api.remoteJoin && api.onRemoteEvent);
   if (canJoin) api.onRemoteEvent(ev => { if (ev.t === 'ended') backToMine(ev.notice); else rlisteners.forEach(fn => fn(ev)); });
 
-  let ui = null, mode = 'mine', remoteInfo = null;      // mode: mine | join | remote
+  let ui = null, mode = 'mine', remoteInfo = null;
   const bar = document.createElement('div');
   bar.className = 'cht-row';
   bar.style.margin = '0 0 12px';
@@ -336,14 +321,11 @@
     (f('addr').value ? (f('name').value ? f('pw') : f('name')) : f('addr')).focus();
   }
 
-  /* ---------- page life ---------- */
   const enter = () => {
     if (mode !== 'mine') return;
     if (!ui) ui = ChatUI.mount(root, adapter, { onSettings: openSettings });
     else ui.scrollEnd();
   };
-  // The chat is started the first time the page is opened (the app cannot be used while it is locked, so it is never
-  // asked for data in that state) and refreshed when the app is unlocked, because nothing is pushed while locked.
   new MutationObserver(() => { if (!pg.hidden) enter(); }).observe(pg, { attributes: true, attributeFilter: ['hidden'] });
   renderBar();
   if (!pg.hidden) enter();

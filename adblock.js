@@ -1,36 +1,24 @@
-// Ad / tracker blocker for the FMHY quick-link pop-out windows.
-//
-// uBlock Origin itself is a browser extension and cannot run inside Electron, so this uses the same filter
-// lists and the same filter syntax (network rules, cosmetic "hide this element" rules and scriptlets) through
-// the @ghostery/adblocker-electron engine. It is attached to one session only: the 'persist:fmhy-popup' one.
-//
-// The compiled engine is cached in the app's data folder, so only the very first launch (and a refresh once a
-// week, or when asked for on the Settings page) has to download the lists. If the lists cannot be loaded the
-// pages still open, just without blocking. status() reports what really happened, for the Settings page.
 const path = require('path');
 const fs = require('fs/promises');
+const crypto = require('crypto');
 
-// uBlock Origin's default lists, plus the EasyList family and Peter Lowe's host list it ships with.
 const LISTS = [
   { name: 'uBlock filters', url: 'https://ublockorigin.github.io/uAssets/filters/filters.min.txt' },
   { name: 'uBlock filters: badware risks', url: 'https://ublockorigin.github.io/uAssets/filters/badware.min.txt' },
   { name: 'uBlock filters: privacy', url: 'https://ublockorigin.github.io/uAssets/filters/privacy.min.txt' },
   { name: 'uBlock filters: quick fixes', url: 'https://ublockorigin.github.io/uAssets/filters/quick-fixes.min.txt' },
   { name: 'uBlock filters: unbreak', url: 'https://ublockorigin.github.io/uAssets/filters/unbreak.min.txt' },
-  { name: 'uBlock filters: resource abuse', url: 'https://ublockorigin.github.io/uAssets/filters/resource-abuse.min.txt' },
+  { name: 'uBlock filters: resource abuse', url: 'https://ublockorigin.github.io/uAssets/filters/resource-abuse.txt' },
   { name: 'EasyList', url: 'https://easylist.to/easylist/easylist.txt' },
   { name: 'EasyPrivacy', url: 'https://easylist.to/easylist/easyprivacy.txt' },
   { name: 'Peter Lowe\'s ad and tracking servers', url: 'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext' }
 ];
 const URLS = LISTS.map(l => l.url);
-const MAX_AGE_MS = 7 * 24 * 3600 * 1000;   // re-download the lists after a week
-const FETCH_TIMEOUT_MS = 30000;
+const MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+const FETCH_TIMEOUT_MS = 45000;
 
-// Downloads go through Electron's own network stack (net.fetch) rather than Node's built-in fetch. Node's fetch
-// (undici) can throw an uncaught "assert(!this.paused)" error in the main process when a server closes the
-// connection in the middle of a big list download, which is what the Update now button used to trigger.
-const timedFetch = (url, opts) => {
-  const o = Object.assign({}, opts, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+const timedFetch = (url, opts, ms) => {
+  const o = Object.assign({}, opts, { signal: AbortSignal.timeout(ms || FETCH_TIMEOUT_MS) });
   let f = null;
   try { f = require('electron').net; } catch {}
   return f && f.fetch ? f.fetch(url, o) : fetch(url, o);
@@ -39,47 +27,111 @@ const exists = async p => { try { return await fs.stat(p); } catch { return null
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const cacheFile = app => path.join(app.getPath('userData'), 'adblock-engine.bin');
 
-// Builds (or reads from the cache) the blocking engine and records in `info` what happened. Resolves to the
-// engine; rejects if that was not possible. `force` throws the saved copy away first (the "Update now" button).
-async function buildEngine(app, force, info) {
-  const { ElectronBlocker } = require('@ghostery/adblocker-electron');
+const listsDir = app => path.join(app.getPath('userData'), 'adblock-lists');
+const listFile = (app, url) => path.join(listsDir(app), crypto.createHash('sha1').update(url).digest('hex').slice(0, 16) + '.txt');
+const LOOKS_HTML = /^\s*<(!doctype|html|head|body)\b/i;
+const why = e => (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) ? 'it took too long to answer' : String((e && e.message) || e || 'unknown error').slice(0, 160);
+
+async function downloadList(url, fetcher) {
+  let last;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) await sleep(1500);
+    try {
+      const res = await fetcher(url, { headers: { Accept: 'text/plain, */*' } });
+      if (!res.ok) throw new Error('the server answered HTTP ' + res.status);
+      const text = await res.text();
+      if (text.length < 200) throw new Error('the answer was empty');
+      if (LOOKS_HTML.test(text.slice(0, 300))) throw new Error('the server sent a web page instead of a list');
+      return text;
+    } catch (e) { last = e; }
+  }
+  throw last;
+}
+
+function listFetcher(app, stats, fetcher) {
+  fetcher = fetcher || timedFetch;
+  const ok = text => new Response(text, { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+  return async (url, opts) => {
+    if (!URLS.includes(url)) return fetcher(url, opts);
+    const name = (LISTS.find(l => l.url === url) || {}).name || url;
+    const file = listFile(app, url);
+    try {
+      const text = await downloadList(url, fetcher);
+      stats.fetched++;
+      try { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file + '.tmp', text); await fs.rename(file + '.tmp', file); } catch {}
+      return ok(text);
+    } catch (err) {
+      let saved = '';
+      try { saved = await fs.readFile(file, 'utf8'); } catch {}
+      if (saved) { stats.saved++; stats.problems.push({ name, why: why(err), saved: true }); return ok(saved); }
+      stats.missing++; stats.problems.push({ name, why: why(err), saved: false });
+      return ok('');
+    }
+  };
+}
+
+async function buildEngine(app, force, info, fetcher) {
+  let ElectronBlocker;
+  try { ({ ElectronBlocker } = require('@ghostery/adblocker-electron')); }
+  catch (e) {
+    if (e && e.code === 'MODULE_NOT_FOUND') throw new Error('The ad blocker component (@ghostery/adblocker-electron) is not installed. Open a terminal in the app folder, run "npm install", then start the app again.');
+    throw e;
+  }
   const file = cacheFile(app);
   const bak = file + '.bak';
   const caching = { path: file, read: fs.readFile, write: fs.writeFile };
   const config = { enableCompression: true, loadCosmeticFilters: true, loadNetworkFilters: true };
+  const stats = { fetched: 0, saved: 0, missing: 0, problems: [] };
+  const lists = listFetcher(app, stats, fetcher);
+
+  const waitForFile = async () => {
+    let after = null;
+    for (let i = 0; i < 10 && !(after && after.size > 0); i++) { after = await exists(file); if (!(after && after.size > 0)) await sleep(200); }
+    return after && after.size > 0 ? after : null;
+  };
 
   const st = await exists(file);
   const stale = !!st && (force || Date.now() - st.mtimeMs > MAX_AGE_MS);
   info.source = st && !stale ? 'cache' : 'download';
   info.warning = '';
+  let restored = false;
   if (stale) { await fs.copyFile(file, bak).catch(() => {}); await fs.rm(file, { force: true }); }
   let engine;
   try {
-    engine = await ElectronBlocker.fromLists(timedFetch, URLS, config, caching);
+    engine = await ElectronBlocker.fromLists(lists, URLS, config, caching);
+    if (stats.fetched + stats.saved === 0 && stats.missing > 0) {
+      await waitForFile(); await fs.rm(file, { force: true });
+      throw new Error('No filter list could be downloaded and none is saved yet. ' + stats.problems[0].name + ': ' + stats.problems[0].why + '.');
+    }
   } catch (err) {
-    // Refresh failed (offline?): keep using the old saved copy rather than going without.
     if (stale && await exists(bak)) {
       await fs.copyFile(bak, file).catch(() => {});
-      engine = await ElectronBlocker.fromLists(timedFetch, URLS, config, caching);
-      info.source = 'cache';
+      engine = await ElectronBlocker.fromLists(lists, URLS, config, caching);
+      info.source = 'cache'; restored = true;
       info.warning = 'Could not download fresh lists (' + String((err && err.message) || err) + '), so the saved copy is being used.';
     } else throw err;
   } finally {
     if (stale) fs.rm(bak, { force: true }).catch(() => {});
   }
 
-  // Confirm the engine really is on disk (the library writes it as it finishes, so give it a moment).
-  let after = null;
-  for (let i = 0; i < 10 && !(after && after.size > 0); i++) { after = await exists(file); if (!(after && after.size > 0)) await sleep(200); }
-  info.cached = !!(after && after.size > 0);
-  info.cachedAt = info.cached ? after.mtimeMs : 0;
-  info.size = info.cached ? after.size : 0;
+  let partial = false;
+  if (!restored && stats.fetched + stats.saved + stats.missing > 0) {
+    info.source = stats.fetched ? 'download' : 'cache';
+    if (stats.problems.length) {
+      info.warning = 'Some lists could not be downloaded: ' + stats.problems.map(p => p.name + ' (' + p.why + (p.saved ? '; the saved copy was used' : '; skipped for now') + ')').join(', ') + '.';
+      partial = stats.missing > 0;
+    }
+  }
+
+  let after = await waitForFile();
+  if (partial && after) { await fs.rm(file, { force: true }); after = null; }
+  info.cached = !!after;
+  info.cachedAt = after ? after.mtimeMs : 0;
+  info.size = after ? after.size : 0;
   try { const f = engine.getFilters(); info.filters = ((f && f.networkFilters) || []).length + ((f && f.cosmeticFilters) || []).length; } catch { info.filters = 0; }
   return engine;
 }
 
-// One guard per session. set(true / false) turns blocking on / off; warm() starts loading the lists early;
-// refresh() downloads them again; status() describes the current state. `onChange` is called after every change.
 function create(app, ses, onChange) {
   let loading = null, refreshing = null, want = false, enabled = false;
   const info = { state: 'idle', source: '', cached: false, cachedAt: 0, size: 0, filters: 0, error: '', warning: '' };
@@ -96,7 +148,6 @@ function create(app, ses, onChange) {
     return loading;
   };
 
-  // Brings the session in line with `want`. Safe to call repeatedly and from several places.
   async function apply() {
     if (want) {
       const engine = await load();
@@ -110,8 +161,6 @@ function create(app, ses, onChange) {
   return {
     warm() { load().catch(() => {}); },
 
-    // Resolves { on, ready, error }. Waits up to `waitMs` for the lists so the page that is about to open is
-    // already covered; if that takes longer the page opens anyway and blocking switches on as soon as it is ready.
     async set(on, waitMs) {
       want = !!on;
       const done = apply().then(() => true, () => false);
@@ -121,7 +170,6 @@ function create(app, ses, onChange) {
       return { on: true, ready: ok, error: ok ? '' : info.error };
     },
 
-    // Downloads every list again and replaces the saved copy. Blocking carries on with the new lists.
     refresh() {
       if (refreshing) return refreshing;
       refreshing = (async () => {
@@ -145,4 +193,4 @@ function create(app, ses, onChange) {
   };
 }
 
-module.exports = { create, LISTS };
+module.exports = { create, LISTS, _listFetcher: listFetcher };

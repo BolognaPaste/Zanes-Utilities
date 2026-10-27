@@ -1,5 +1,3 @@
-# Lists the device drivers installed on this PC, the driver packages that report their own
-# version (chipset software), and which PC / motherboard maker built it. Needs no admin rights.
 $ErrorActionPreference = 'SilentlyContinue'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8

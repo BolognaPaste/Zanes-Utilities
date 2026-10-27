@@ -1,17 +1,3 @@
-// Chat GUI: channel list, messages, members and the box you type in.
-//
-// It depends on nothing else on the page, so the same file runs inside the app (Test page, see test-ui.js) and in
-// the browser page other people open (chat-web.html). The page that uses it passes in an "api" object, which is the
-// only thing that knows how messages travel:
-//
-//   api.init()                 -> { server: {name}, me: {id,name,color,host}, channels: [...], members: [...] }
-//   api.history(ch, before?)   -> { messages: [...oldest first], more: boolean }
-//   api.send(ch, text)         api.typing(ch)         api.remove(ch, id)      (all return promises)
-//   api.on(fn)                 -> unsubscribe function; fn gets events: message, delete, channels, members, typing,
-//                                 server, kicked, plus { t: 'status', online } and { t: 'resync' } from the transport
-//   api.host (optional)        -> { addChannel(name, topic), kick(uid) }; when present the host controls are shown
-//
-// Everything that comes from other people is put on the page with textContent, never as HTML.
 (function (g) {
   'use strict';
 
@@ -48,7 +34,6 @@
     '</div>' +
     '<aside class="cht-mem" data-r="mem" aria-label="Members"></aside>';
 
-  /* ---------- small helpers ---------- */
   function h(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function btn(cls, text) { const b = h('button', cls, text); b.type = 'button'; return b; }
   const initial = n => (Array.from(String(n || '?'))[0] || '?').toUpperCase();
@@ -62,7 +47,6 @@
     if (dayKey(d) === dayKey(y)) return 'Yesterday';
     return d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
   }
-  // Web addresses in a message become links. Only http and https are linked; the app opens them in your normal browser.
   function linkify(parent, text) {
     const re = /https?:\/\/[^\s<>"']+/g;
     let last = 0, m;
@@ -81,14 +65,12 @@
     }
     if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
   }
-  // First press asks "Sure?", second press within 2.5 seconds does it.
   function confirmClick(b, sure, fn) {
     if (b.dataset.sure) { clearTimeout(b._t); delete b.dataset.sure; b.textContent = b.dataset.label; fn(); return; }
     b.dataset.label = b.textContent; b.dataset.sure = '1'; b.textContent = sure;
     b._t = setTimeout(() => { delete b.dataset.sure; b.textContent = b.dataset.label; }, 2500);
   }
 
-  /* ---------- the GUI ---------- */
   function mount(root, api, opts) {
     opts = opts || {};
     const host = !!(api.host && api.host.addChannel);
@@ -103,7 +85,6 @@
     root.classList.toggle('cht-nomem', small);
     r.memt.setAttribute('aria-pressed', String(!small));
 
-    /* messages shown to the person */
     let bannerT = 0;
     function banner(text, sticky) {
       clearTimeout(bannerT);
@@ -119,7 +100,6 @@
     }
     const chName = id => { const c = S.channels.find(x => x.id === id); return c ? c.name : ''; };
 
-    /* ----- left column ----- */
     function renderChannels() {
       r.sname.textContent = S.server.name || 'Chat';
       r.chs.textContent = '';
@@ -149,7 +129,6 @@
       lockInput();
     }
 
-    /* ----- right column ----- */
     function memberRow(m) {
       const row = h('div', 'cht-mb' + (m.online ? '' : ' off'));
       const av = avatar(m.name, m.color, true);
@@ -173,7 +152,6 @@
       }
     }
 
-    /* ----- messages ----- */
     const atBottom = () => r.msgs.scrollHeight - r.msgs.scrollTop - r.msgs.clientHeight < 80;
     const toBottom = () => { r.msgs.scrollTop = r.msgs.scrollHeight; r.jump.hidden = true; };
     r.msgs.addEventListener('scroll', () => { if (atBottom()) r.jump.hidden = true; });
@@ -191,7 +169,7 @@
       if (!grp) {
         const meta = h('div', 'cht-meta');
         const u = h('span', 'cht-u', m.name);
-        u.style.color = 'color-mix(in srgb, ' + colorOf(m.color) + ' 62%, var(--c-fg))';   // stays readable on light and dark themes
+        u.style.color = 'color-mix(in srgb, ' + colorOf(m.color) + ' 62%, var(--c-fg))';
         meta.appendChild(u);
         if (m.uid === 'host') meta.appendChild(h('span', 'cht-tag', 'HOST'));
         meta.appendChild(h('span', 'cht-ts', timeOf(m.ts)));
@@ -227,7 +205,7 @@
       for (const m of list) { rowsFor(m, prev).forEach(n => frag.appendChild(n)); prev = m; }
       box.appendChild(frag);
     }
-    function rerender() {            // redraw but keep the same distance from the bottom
+    function rerender() {
       const below = r.msgs.scrollHeight - r.msgs.scrollTop;
       renderMsgs();
       r.msgs.scrollTop = r.msgs.scrollHeight - below;
@@ -276,7 +254,6 @@
       if (S.cur === ch) { renderMsgs(); r.msgs.scrollTop = t0 + (r.msgs.scrollHeight - h0); }
     }
 
-    /* ----- typing ----- */
     function renderTyping() {
       const now = Date.now(), t = S.typing[S.cur] || {};
       const names = Object.keys(t).filter(uid => t[uid].until > now && (!S.me || uid !== S.me.id)).map(uid => t[uid].name);
@@ -284,7 +261,6 @@
     }
     const tick = setInterval(renderTyping, 1000);
 
-    /* ----- composer ----- */
     let lastTyped = 0;
     r.ta.addEventListener('input', () => {
       r.ta.style.height = 'auto';
@@ -307,7 +283,6 @@
     }
     r.send.addEventListener('click', () => { send(); r.ta.focus(); });
 
-    /* ----- events from the server ----- */
     function onEvent(ev) {
       if (!ev || typeof ev !== 'object') return;
       switch (ev.t) {
@@ -381,7 +356,6 @@
       await open(S.channels.some(c => c.id === S.cur) ? S.cur : null);
     }
 
-    /* ----- clicks ----- */
     root.addEventListener('click', e => {
       const t = e.target.closest('[data-a]');
       if (!t || !root.contains(t)) return;
@@ -401,7 +375,6 @@
     });
     r.gear.addEventListener('click', () => { if (opts.onSettings) opts.onSettings(ctl); });
 
-    /* new channel (host only) */
     r.add.addEventListener('click', () => { r.addbox.hidden = !r.addbox.hidden; if (!r.addbox.hidden) r.addin.focus(); });
     async function addChannel() {
       const name = r.addin.value.trim();
@@ -409,14 +382,12 @@
       try {
         const res = await api.host.addChannel(name, '');
         r.addin.value = ''; r.addbox.hidden = true;
-        // The "channels changed" event can arrive before or after this reply, so handle both orders.
         if (res && res.id) { if (S.channels.some(c => c.id === res.id)) open(res.id); else S.want = res.id; }
       } catch (e) { fail(e); }
     }
     r.addgo.addEventListener('click', addChannel);
     r.addin.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addChannel(); } else if (e.key === 'Escape') r.addbox.hidden = true; });
 
-    /* full-cover panel, used for the server settings */
     let panelClean = null;
     function openPanel(title, build) {
       closePanel();
@@ -435,7 +406,6 @@
       if (opts.onPanelClose) opts.onPanelClose();
     }
     r.pclose.addEventListener('click', closePanel);
-    // On the document, not the chat: saving a setting redraws its card, which drops keyboard focus out of the chat.
     const onKey = e => { if (e.key === 'Escape' && !r.panel.hidden && root.offsetParent !== null) closePanel(); };
     document.addEventListener('keydown', onKey);
 

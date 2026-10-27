@@ -1,7 +1,3 @@
-// Browser page for people who join your chat server (served by chat-server.js at http://<your-ip>:<port>).
-// It signs in, keeps a live connection going (long-polling, so it also works through the internet link and any proxy)
-// and hands everything to the shared GUI in chat-ui.js.
-// The login token is kept in this browser only, so reloading the page keeps you signed in.
 (function () {
   'use strict';
   const app = document.getElementById('app');
@@ -41,9 +37,6 @@
     on: fn => { listeners.add(fn); return () => listeners.delete(fn); }
   };
 
-  // Live events: ask the server "anything new?" over and over. ack tells it which events we already processed, so
-  // nothing is lost if a reply gets dropped. If the session was forgotten (server restarted, long network gap) a new one
-  // is opened and the GUI reloads everything.
   async function connect() { const r = await call('POST', '/api/connect', {}); sid = r.sid; ack = 0; }
   async function live(mine) {
     let fails = 0, offline = false;

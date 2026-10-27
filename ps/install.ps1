@@ -1,4 +1,3 @@
-# Runs elevated. __IDS__, __LOG__ and __RESTORE__ are filled in by driver-ipc.js.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $ids = @(__IDS__)

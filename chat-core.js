@@ -1,12 +1,3 @@
-// Chat core: the whole chat "server" as plain logic. It knows nothing about Electron or the network.
-//
-// The app window talks to it through chat-ipc.js, and other people talk to it through chat-server.js (a small
-// HTTP server). Both end up calling the same methods below, so every rule (name limits, message length, who may
-// delete what, rate limits) lives in this one file.
-//
-// What is stored (chat/state.json in the app's data folder): the server name, the channels, the last messages of
-// each channel, the people who joined (only a SHA-256 hash of their login token, never the token itself) and a
-// salted scrypt hash of the join password if one is set. Nothing is sent anywhere by this file.
 const fs = require('fs');
 const secure = require('./secure-store');
 const path = require('path');
@@ -14,13 +5,13 @@ const crypto = require('crypto');
 
 const LIMITS = {
   name: 24, text: 2000, channel: 32, topic: 120, serverName: 40,
-  history: 500,      // messages kept per channel
-  page: 100,         // messages returned per history request
+  history: 500,
+  page: 100,
   channels: 30, users: 200,
-  burst: 6, burstMs: 6000,           // at most 6 messages per 6 seconds per person
+  burst: 6, burstMs: 6000,
   pwMin: 4, pwMax: 128,
-  failMax: 8, failMs: 60000,         // wrong join passwords allowed per address per minute
-  allFailMax: 40, allFailMs: 600000  // ...and in total from everyone per 10 minutes (matters once there is a public link)
+  failMax: 8, failMs: 60000,
+  allFailMax: 40, allFailMs: 600000
 };
 const COLORS = ['#b57bff', '#5ec8ff', '#ff8a80', '#f0b45a', '#6ee7a0', '#ff7ad9', '#9aa5ff', '#e8d36a'];
 const HOST = 'host';
@@ -29,7 +20,6 @@ class ChatError extends Error {
   constructor(message, code) { super(message); this.code = code || 400; }
 }
 
-// Control characters and the "right-to-left override" family are removed so nobody can fake someone else's name.
 const BAD = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
 const cleanName = (s, max) => String(s == null ? '' : s).replace(/[\r\n\t]+/g, ' ').replace(BAD, '').replace(/\s+/g, ' ').trim().slice(0, max);
 const cleanText = s => String(s == null ? '' : s).replace(/\r\n?/g, '\n').replace(BAD, '').replace(/\n{4,}/g, '\n\n\n').trim();
@@ -62,16 +52,15 @@ class ChatHub {
   constructor(file) {
     this.file = file;
     this.d = this._load();
-    this.subs = new Map();        // person id -> Set of listener functions (one per open window / browser tab)
-    this.hashes = new Map();      // token hash -> person id
+    this.subs = new Map();
+    this.hashes = new Map();
     for (const u of Object.values(this.d.users)) this.hashes.set(u.th, u.id);
-    this.rate = new Map();        // person id -> { sent: [timestamps], typed: timestamp }
-    this.fails = new Map();       // network address -> [timestamps of wrong passwords]
-    this.allFails = [];           // timestamps of every wrong password
+    this.rate = new Map();
+    this.fails = new Map();
+    this.allFails = [];
     this.timer = null;
   }
 
-  /* ---------- storage ---------- */
   _load() {
     const d = fresh();
     let b;
@@ -124,12 +113,10 @@ class ChatHub {
   flush() {
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     try {
-      secure.writeTextSync(this.file, JSON.stringify(this.d));          // encrypted, written whole then swapped in (secure-store.js)
-    } catch { /* a failed save must never take the chat down; the next change tries again */ }
+      secure.writeTextSync(this.file, JSON.stringify(this.d));
+    } catch { }
   }
 
-  /* ---------- live connections ---------- */
-  // fn(event) is called for every event; events with a "to" only go to that person. Returns the unsubscribe function.
   subscribe(uid, fn) {
     let set = this.subs.get(uid);
     const first = !set || !set.size;
@@ -147,11 +134,10 @@ class ChatHub {
   _emit(ev, onlyUid) {
     for (const [uid, set] of this.subs) {
       if (onlyUid && uid !== onlyUid) continue;
-      for (const fn of [...set]) { try { fn(ev); } catch { /* one broken listener must not stop the others */ } }
+      for (const fn of [...set]) { try { fn(ev); } catch { } }
     }
   }
 
-  /* ---------- people ---------- */
   members() {
     const list = [{ id: HOST, name: this.d.host.name, color: this.d.host.color, host: true, online: true }];
     for (const u of Object.values(this.d.users)) list.push({ id: u.id, name: u.name, color: u.color, host: false, online: this.connections(u.id) > 0 });
@@ -165,7 +151,6 @@ class ChatHub {
   info() { return { id: this.d.id, name: this.d.name, passwordRequired: !!this.d.pw }; }
   hasPassword() { return !!this.d.pw; }
 
-  // Returns { token, me } for a new person (name + password if one is set) or for someone coming back with their token.
   join(req, address) {
     req = req || {};
     if (typeof req.token === 'string' && req.token) {
@@ -183,9 +168,6 @@ class ChatHub {
       f.push(now); this.fails.set(key, f); this.allFails.push(now);
       throw new ChatError('Wrong password.', 403);
     }
-    // A person's own device keeps a secret "recover" key (see chat-remote.js). Showing it again, after the password check
-    // above, gives them their old account back with a fresh login token, so their name and old messages stay theirs
-    // even when they come in through a new internet link (a new address makes the browser forget its saved login).
     const rec = typeof req.recover === 'string' && /^[0-9a-f]{32,64}$/.test(req.recover) ? req.recover : '';
     if (rec) {
       const rh = sha(rec);
@@ -240,7 +222,6 @@ class ChatHub {
     this._emit({ t: 'members', members: this.members() });
   }
 
-  /* ---------- messages ---------- */
   _channel(id) {
     const c = this.d.channels.find(x => x.id === id);
     if (!c) throw new ChatError('That channel does not exist.', 404);
@@ -294,7 +275,6 @@ class ChatHub {
     this._emit({ t: 'delete', ch: chId, id: msgId });
   }
 
-  /* ---------- host-only settings (called only from chat-ipc.js, never from the network) ---------- */
   _channelsChanged() { this._save(); this._emit({ t: 'channels', channels: this.d.channels.map(c => ({ ...c })) }); }
   addChannel(name, topic) {
     if (this.d.channels.length >= LIMITS.channels) throw new ChatError('That is the most channels allowed (' + LIMITS.channels + ').');

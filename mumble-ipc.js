@@ -1,17 +1,3 @@
-// Voice chat through Mumble (https://www.mumble.info), next to the text chat on the Test page.
-//
-// Mumble is a separate, free, open-source voice program (a native app, so it cannot be shown inside the page). This
-// file does not download or contain it: you provide the Mumble files, the same way you provide cloudflared for the
-// chat's internet link (see findBin). With them in place the app can:
-//   - run a Mumble server (mumble-server.exe) on this PC, with a port, an optional password and an on-network-only switch
-//   - open the Mumble client already pointed at that server
-//
-// Mumble's voice is its own protocol (TCP + UDP on port 64738 by default). The chat's Cloudflare "internet link" only
-// carries web pages, so it cannot carry voice. Friends on your network can join directly; friends elsewhere need a VPN
-// such as Tailscale (or a router port forward with a password set).
-//
-// Only the app window may ask for these things (every request goes through main.js's trusted-sender check), and
-// processes are started with an argument list, never through a shell.
 const fs = require('fs');
 const secure = require('./secure-store');
 const os = require('os');
@@ -31,7 +17,6 @@ const NAME_OK = {
 const READY_MS = 10000;
 const isFile = f => { try { return fs.statSync(f).isFile(); } catch { return false; } };
 const looksRight = (kind, f) => typeof f === 'string' && path.isAbsolute(f) && NAME_OK[kind].test(path.basename(f));
-// The password goes into the server's settings file between quotes, so keep it to plain printable characters.
 const passwordOk = p => typeof p === 'string' && /^[\x20-\x7e]{1,64}$/.test(p) && !/["\\]/.test(p);
 const cleanName = n => String(n || '').replace(/[^\w .-]/g, '').trim().slice(0, 24) || 'host';
 
@@ -39,7 +24,6 @@ function register(ipc, getWin, { app, dialog }) {
   const dir = path.join(app.getPath('userData'), 'mumble');
   const cfgFile = path.join(dir, 'mumble.json');
   const iniFile = path.join(dir, 'server.ini');
-  // Saved choices. The password is stored here in plain text because Mumble's server settings file needs it that way.
   let cfg = { client: '', server: '', port: 64738, lan: false, password: '' };
   try {
     const c = JSON.parse(secure.readTextSync(cfgFile));
@@ -53,8 +37,6 @@ function register(ipc, getWin, { app, dialog }) {
   } catch {}
   const save = () => { secure.writeTextSync(cfgFile, JSON.stringify(cfg)); };
 
-  // Where the Mumble files are looked for: the file you picked, then "mumble" folders next to the app, in its
-  // resources and in its data folder (also their "client" / "server" subfolders), then Mumble's normal install folders.
   const unpacked = __dirname.replace(/app\.asar([\\/]|$)/, 'app.asar.unpacked$1');
   const find = kind => {
     const saved = cfg[kind];
@@ -68,7 +50,6 @@ function register(ipc, getWin, { app, dialog }) {
     return '';
   };
 
-  // ---- the server process ----
   let child = null, running = false, runPort = 0, runLan = false, error = '', tail = [];
   const lanUrls = () => {
     if (!running || !runLan) return [];
@@ -89,7 +70,7 @@ function register(ipc, getWin, { app, dialog }) {
       'database=' + f(path.join(dir, 'mumble-server.sqlite')),
       'logfile=' + f(path.join(dir, 'mumble-server.log')),
       'port=' + port,
-      lan ? '' : 'host=127.0.0.1',                      // without "host" the server answers on every network card
+      lan ? '' : 'host=127.0.0.1',
       password ? 'serverpassword="' + password + '"' : '',
       'users=20',
       'registerName="Zane\'s Utilities"',
@@ -97,8 +78,6 @@ function register(ipc, getWin, { app, dialog }) {
     ].filter(Boolean).join('\n') + '\n';
   };
 
-  // Resolves once something is accepting connections on the port and our process is still alive (a port that is
-  // already taken makes the server quit, so being alive after the connect means it is ours).
   const waitReady = (c, port) => new Promise((resolve, reject) => {
     const t0 = Date.now();
     const gone = () => new Error('The Mumble server stopped right away.' + (tail.length ? ' ' + tail[tail.length - 1] : ' Is port ' + port + ' already in use?'));
@@ -150,24 +129,19 @@ function register(ipc, getWin, { app, dialog }) {
   async function openClient(name) {
     const bin = find('client');
     if (!bin) throw new Error('The Mumble program (mumble.exe) was not found. Follow the setup steps in the voice section.');
-    // Pointing it at our own server. The password is not put on the command line (other programs can read that);
-    // Mumble asks for it once and can remember it.
     const args = running ? ['mumble://' + encodeURIComponent(cleanName(name)) + '@127.0.0.1:' + runPort + '/'] : [];
     const c = spawn(bin, args, { detached: true, stdio: 'ignore', cwd: path.dirname(bin) });
     await new Promise((res, rej) => { c.once('spawn', res); c.once('error', rej); });
     c.unref();
   }
 
-  // Sets the password of Mumble's built-in owner account ("SuperUser"), which can add channels and make other people
-  // admins. Mumble only allows this while the server is stopped, by running the server program once with -supw.
-  // The password is given to that program as an argument (no shell is involved) and is not saved by this app.
   async function setOwnerPassword(pw) {
     if (running) throw new Error('Stop the voice server first, then set the owner password.');
     if (typeof pw !== 'string' || !/^[\x20-\x7e]{4,64}$/.test(pw)) throw new Error('Use 4 to 64 letters, numbers or symbols for the owner password.');
     const bin = find('server');
     if (!bin) throw new Error('The Mumble server (mumble-server.exe) was not found. Follow the setup steps in the voice section.');
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(iniFile, ini(cfg.port, cfg.lan, cfg.password));      // same database the voice server uses
+    fs.writeFileSync(iniFile, ini(cfg.port, cfg.lan, cfg.password));
     await new Promise((resolve, reject) => {
       const c = spawn(bin, ['-ini', iniFile, '-supw', pw], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], cwd: path.dirname(bin) });
       const lines = [];

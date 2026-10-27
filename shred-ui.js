@@ -1,5 +1,3 @@
-// File shredder page and the shredding stats on the home page.
-// Talks to shred-ipc.js through window.shredder (see preload.js). Uses $, esc and toast from index.html.
 (function () {
   'use strict';
   const K = 'gca-shred-stats';
@@ -13,7 +11,6 @@
     return (i === 0 || n >= 100 ? Math.round(n) : n.toFixed(n >= 10 ? 1 : 2)) + ' ' + u[i];
   };
 
-  /* Home page stats */
   const sb = $('#ss-b'), sf = $('#ss-f'), sd = $('#ss-d'), sl = $('#ss-l'), reset = $('#ss-x');
   function renderStats() {
     const s = load();
@@ -34,7 +31,6 @@
   });
   renderStats();
 
-  /* Shredder page */
   const na = $('#sh-na'), addF = $('#sh-files'), addD = $('#sh-folder'), list = $('#sh-list');
   const hint = $('#sh-hint'), go = $('#sh-go'), clr = $('#sh-clear'), stop = $('#sh-stop'), res = $('#sh-res');
   const api = window.shredder;

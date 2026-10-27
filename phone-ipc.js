@@ -1,26 +1,13 @@
-// Phone Link backend: shows and controls an Android phone on this PC over USB with scrcpy.
-// scrcpy opens its own window (the phone screen, mouse and keyboard work in it), and adb, which
-// comes in the same download as scrcpy, is used for the phone list and the quick buttons.
-//
-// The page never sends commands or paths. It sends a phone serial that must be in the last adb
-// list, option values that are checked against fixed lists here, and names of quick actions that
-// map to fixed adb arguments. Files this module writes (screenshots, recordings) go to
-// Downloads\ZanesUtilities, and the APK to install comes from a native file dialog opened here.
-//
-// scrcpy and adb are looked for, in order, in: the "scrcpy" folder next to the app (unpacked from the
-// asar archive when packaged), "scrcpy" in the app's resources folder, "scrcpy" in the app's data folder,
-// and finally the folders on PATH. Nothing is downloaded by the app.
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 const { spawn } = require('child_process');
 
 const SERIAL = /^[\w.:\-]{1,64}$/;
-// Quick buttons. The numbers are Android key codes (KEYCODE_HOME and so on).
 const KEYS = { home: 3, back: 4, recents: 187, power: 26, volup: 24, voldown: 25, wake: 224 };
 const SHELL = { notif: ['shell', 'cmd', 'statusbar', 'expand-notifications'] };
-const SIZES = [0, 800, 1024, 1280, 1920, 2560];   // longest side in pixels, 0 = the phone's own size
-const RATES = [2, 4, 8, 16, 32, 64];              // video bit rate in Mbit/s
+const SIZES = [0, 800, 1024, 1280, 1920, 2560];
+const RATES = [2, 4, 8, 16, 32, 64];
 const FPS = [15, 30, 60, 90, 120];
 
 const unpack = p => p.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
@@ -38,7 +25,6 @@ function findTools(app) {
   const all = own.concat((process.env.PATH || '').split(path.delimiter).filter(Boolean));
   const look = (name, dirs) => { for (const d of dirs) { const f = path.join(d, exe(name)); if (fs.existsSync(f)) return f; } return ''; };
   const scrcpy = look('scrcpy', all);
-  // adb from the same download as scrcpy is the safest pairing; otherwise any adb on this PC.
   const adb = (scrcpy && look('adb', [path.dirname(scrcpy)])) || look('adb', all);
   return { scrcpy, adb, own, bundled: !!adb && own.includes(path.dirname(adb)) };
 }
@@ -54,8 +40,6 @@ function run(bin, args, { timeout = 15000 } = {}) {
     p.stdout.on('data', d => { out = (out + d).slice(-1e6); });
     p.stderr.on('data', d => { err = (err + d).slice(-1e6); });
     p.on('error', e => { err = e.message; fin(-1); });
-    // 'close' waits for the output pipes to end, which never happens if adb leaves its background server holding them.
-    // So also finish shortly after the process itself exits.
     p.on('exit', code => setTimeout(() => fin(code), 250));
     p.on('close', code => fin(code));
   });
@@ -72,10 +56,10 @@ const stateHelp = s => s === 'unauthorized' ? 'Unlock the phone and tap Allow on
 
 function register(ipcMain, getWin, { app, dialog, shell }) {
   const send = m => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send('phn:event', m); };
-  const info = new Map();        // serial -> { mfr, model, android }, asked once per phone
-  const made = new Set();        // files this module wrote, the only ones the page may reveal
-  const versions = new Map();    // scrcpy path -> version text
-  let seen = new Map();          // serial -> device from the last adb list
+  const info = new Map();
+  const made = new Set();
+  const versions = new Map();
+  let seen = new Map();
   let proc = null, stopping = false, tail = [], usedAdb = false, installing = false, polling = false;
 
   const outDir = () => path.join(app.getPath('downloads'), 'ZanesUtilities');
@@ -95,7 +79,6 @@ function register(ipcMain, getWin, { app, dialog, shell }) {
     const p = proc;
     stopping = true;
     if (process.platform === 'win32' && p.pid) {
-      // Without /F this asks the scrcpy window to close, so a recording is finished properly.
       try { spawn('taskkill', ['/PID', String(p.pid)], { windowsHide: true }).on('error', () => {}); } catch {}
       setTimeout(() => { if (proc === p) p.kill(); }, 3000);
     } else p.kill();
@@ -103,8 +86,6 @@ function register(ipcMain, getWin, { app, dialog, shell }) {
 
   app.on('before-quit', () => {
     if (proc) proc.kill();
-    // adb starts a background server. When it came from this app's own scrcpy folder, stop it on the way out
-    // so it does not keep those files locked. An adb found on PATH belongs to the user and is left alone.
     if (usedAdb) {
       const t = findTools(app);
       if (t.adb && t.bundled) { try { spawn(t.adb, ['kill-server'], { windowsHide: true, detached: true, stdio: 'ignore' }).unref(); } catch {} }
@@ -175,7 +156,7 @@ function register(ipcMain, getWin, { app, dialog, shell }) {
     if (n.error) return { ok: false, error: n.error };
     if (!n.t.scrcpy) return { ok: false, error: 'scrcpy was not found.' };
     const o = (req && req.opts) || {};
-    const ro = !!o.view;   // view only: scrcpy refuses the options that need control, so they are dropped
+    const ro = !!o.view;
 
     const args = ['-s', n.serial, '--window-title=' + (n.d.model || n.serial).replace(/[^\w .-]/g, '')];
     const size = pick(o.size, SIZES, 1920);
@@ -195,7 +176,6 @@ function register(ipcMain, getWin, { app, dialog, shell }) {
     if (o.rec) {
       try {
         await fsp.mkdir(outDir(), { recursive: true });
-        // .mkv is used because it stays playable even if scrcpy has to be stopped abruptly.
         rec = path.join(outDir(), 'phone-' + stamp() + '.mkv');
         args.push('--record=' + rec);
         made.add(rec);
@@ -204,7 +184,7 @@ function register(ipcMain, getWin, { app, dialog, shell }) {
 
     stopping = false; tail = [];
     const env = { ...process.env };
-    if (n.t.adb) env.ADB = n.t.adb;   // make scrcpy use the same adb, so two adb versions do not fight over the server
+    if (n.t.adb) env.ADB = n.t.adb;
     const p = spawn(n.t.scrcpy, args, { windowsHide: true, env });
     proc = p;
     const feed = () => {
@@ -235,11 +215,10 @@ function register(ipcMain, getWin, { app, dialog, shell }) {
       send({ t: 'exit', code, rec: rec && fs.existsSync(rec) ? rec : '', err: clean ? '' : lastError() });
     };
     p.on('error', e => { tail.push(e.message); finish(-1); });
-    p.on('exit', code => setTimeout(() => finish(code), 250));   // a little time for the last log lines to arrive
+    p.on('exit', code => setTimeout(() => finish(code), 250));
     p.on('close', code => finish(code));
     send({ t: 'state', running: true });
 
-    // If scrcpy quits within a couple of seconds, something is wrong (phone locked, too old Android, bad option).
     const early = await new Promise(resolve => {
       let done = false;
       const fin = v => { if (!done) { done = true; resolve(v); } };

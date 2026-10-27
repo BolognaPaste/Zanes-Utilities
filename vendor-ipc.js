@@ -1,5 +1,3 @@
-// Manufacturer-site checks (graphics, Wi-Fi, Bluetooth, chipset) and verified NVIDIA downloads.
-// See vendor-sources.js for what is queried.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -16,7 +14,6 @@ function register(ipcMain, getWin, { app, net, shell }) {
   const verified = new Set();
   let checking = false, downloading = false;
 
-  // Only these manufacturer hosts are ever contacted, and results are kept for 30 minutes.
   async function get(url) {
     const u = new URL(url);
     if (u.protocol !== 'https:' || !HOSTS.has(u.hostname)) throw new Error('Blocked host ' + u.hostname);
@@ -54,7 +51,6 @@ function register(ipcMain, getWin, { app, net, shell }) {
       if (!g.ok) return g;
       const build = Number((os.release().split('.')[2]) || 0);
       const data = await checkAll(g.data, { get, build });
-      // Wi-Fi, Bluetooth, chipset and the PC maker link. A failure here must not hide the graphics results.
       const noDevices = why => ({ vendor: 'This PC', category: 'Other', gpu: 'Other drivers', installed: '', status: 'unknown', page: '', source: 'Windows', note: 'Could not list the devices in this PC: ' + why });
       try {
         const dv = listResult(await runPS(readPS('devices.ps1'), 90000));
@@ -93,7 +89,6 @@ function register(ipcMain, getWin, { app, net, shell }) {
     } finally { downloading = false; }
   });
 
-  // Opens the installer only if this app downloaded it and its signature is still valid.
   ipcMain.handle('vnd:run', async (_e, req) => {
     const file = String((req && req.file) || '');
     if (!verified.has(file) || !fs.existsSync(file)) return { ok: false, error: 'That installer is not available. Download it again.' };

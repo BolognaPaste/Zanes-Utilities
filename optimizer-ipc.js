@@ -1,6 +1,3 @@
-// Game optimizer backend. Reads this PC's hardware (ps/specs.ps1) and applies a few Windows tweaks that need no
-// administrator rights: Game Mode, Game Bar capture, the power plan and the per-game "use the high-performance GPU"
-// setting. Values it changes are saved in userData/optimizer-backup.json first, so "Undo" can put them back.
 const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const secure = require('./secure-store');
@@ -28,7 +25,6 @@ const exec = (file, args) => new Promise(res => execFile(file, args, { windowsHi
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HIGH = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c', ULTIMATE = 'e9a42b02-d5df-448d-aa00-03f14749eb61';
 const GPUKEY = 'HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences';
-// [registry key, value name, wanted value, value Windows uses when the entry is missing]
 const REGS = {
   gamemode: [['HKCU\\Software\\Microsoft\\GameBar', 'AutoGameModeEnabled', 1, 1], ['HKCU\\Software\\Microsoft\\GameBar', 'AllowAutoGameMode', 1, 1]],
   capture: [['HKCU\\System\\GameConfigStore', 'GameDVR_Enabled', 0, 1], ['HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR', 'AppCaptureEnabled', 0, 1]]
@@ -50,9 +46,6 @@ async function scheme() {
   return { guid: g ? g[1].toLowerCase() : '', name: n ? n[1] : '' };
 }
 
-// ---- Per-game settings. Unreal Engine games keep their graphics choices in GameUserSettings.ini under
-// %LOCALAPPDATA%\<Project>\Saved\Config\<Windows folder>. Only files that already exist are edited, and the
-// original is copied to userData/optimizer-games first so "Undo game settings" can put it back.
 const crypto = require('crypto');
 const sha = s => crypto.createHash('sha1').update(String(s).toLowerCase()).digest('hex');
 const UE_SUBS = ['WindowsNoEditor', 'Windows', 'WindowsClient', 'WinGDK'];
@@ -150,7 +143,7 @@ function register(ipcMain, getWin, { app }) {
         const cur = await scheme();
         if (cur.guid && !b.power) b.power = cur.guid;
         let r = await exec('powercfg.exe', ['/setactive', HIGH]);
-        if (!r.ok) {                                   // many laptops hide the plan until it is created
+        if (!r.ok) {
           const d = await exec('powercfg.exe', ['/duplicatescheme', HIGH]), g = /([0-9a-f]{8}-[0-9a-f-]{27})/i.exec(d.out);
           if (g) r = await exec('powercfg.exe', ['/setactive', g[1]]);
         }
@@ -186,7 +179,6 @@ function register(ipcMain, getWin, { app }) {
     return failed.length ? { ok: false, error: 'Could not restore: ' + failed.join(', ') + '.', data } : { ok: true, data };
   }));
 
-  // Windows "Graphics settings" per-app choice: GpuPreference=2 is High performance.
   ipcMain.handle('opt:gpu', guard(async req => {
     const paths = (Array.isArray(req.paths) ? req.paths : []).filter(p => typeof p === 'string' && EXE.test(p)).slice(0, 50);
     if (!paths.length) return { ok: false, error: 'Choose game .exe files first.' };
@@ -202,7 +194,6 @@ function register(ipcMain, getWin, { app }) {
     return { ok: true, data: await state() };
   }));
 
-  // ---- "My games": a saved list of game .exe files that the recommended settings are written into.
   const gfile = () => path.join(app.getPath('userData'), 'optimizer-games.json');
   const gdir = () => path.join(app.getPath('userData'), 'optimizer-games');
   const gload = () => {
@@ -274,4 +265,4 @@ function register(ipcMain, getWin, { app }) {
   }));
 }
 
-module.exports = { register };
+module.exports = { register, _test: { setIni, ueEdit, clampN } };

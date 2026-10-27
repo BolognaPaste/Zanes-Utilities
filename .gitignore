@@ -1,0 +1,15 @@
+node_modules/
+dist/
+out/
+coverage/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+Thumbs.db
+# Large third-party binaries are fetched/placed by hand and hash-checked; see binaries.sha256.json
+# (remove these lines if you want them committed)
+scrcpy/
+cloudflared/
+mumble/
+sbom.cdx.json
