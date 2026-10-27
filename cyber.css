@@ -52,7 +52,8 @@ body {
 }
 
 body::before {
-  background: radial-gradient(ellipse 48% 38% at 14% 8%, rgba(122, 92, 255, 0.24), transparent 70%),
+  background:
+    radial-gradient(ellipse 48% 38% at 14% 8%, rgba(122, 92, 255, 0.24), transparent 70%),
     radial-gradient(ellipse 42% 34% at 90% 18%, rgba(40, 170, 255, 0.17), transparent 70%),
     radial-gradient(ellipse 30% 26% at 72% 64%, rgba(255, 150, 80, 0.06), transparent 70%),
     radial-gradient(
@@ -78,7 +79,8 @@ body::before {
 .app::before {
   top: -220px;
   height: calc(100vh + 220px);
-  background-image: radial-gradient(1.6px 1.6px at 23px 41px, #fff, transparent),
+  background-image:
+    radial-gradient(1.6px 1.6px at 23px 41px, #fff, transparent),
     radial-gradient(1.4px 1.4px at 87px 162px, rgba(200, 235, 255, 0.85), transparent),
     radial-gradient(1.4px 1.4px at 140px 20px, rgba(255, 255, 255, 0.75), transparent),
     radial-gradient(1.8px 1.8px at 190px 110px, rgba(255, 228, 196, 0.85), transparent),
@@ -94,7 +96,8 @@ body::before {
 .app::after {
   top: -370px;
   height: calc(100vh + 370px);
-  background-image: radial-gradient(2.4px 2.4px at 64px 88px, #fff, transparent),
+  background-image:
+    radial-gradient(2.4px 2.4px at 64px 88px, #fff, transparent),
     radial-gradient(2px 2px at 280px 40px, rgba(190, 230, 255, 0.95), transparent),
     radial-gradient(2.2px 2.2px at 210px 300px, rgba(255, 220, 180, 0.9), transparent),
     radial-gradient(1.8px 1.8px at 330px 210px, rgba(255, 255, 255, 0.85), transparent),
@@ -1763,7 +1766,8 @@ details#ld > summary:after {
 }
 
 .fb {
-  background: radial-gradient(ellipse at 50% 0%, hsl(var(--h) 80% 60% / 0.35), transparent 70%),
+  background:
+    radial-gradient(ellipse at 50% 0%, hsl(var(--h) 80% 60% / 0.35), transparent 70%),
     linear-gradient(160deg, hsl(var(--h) 55% 22%), hsl(var(--h) 60% 7%));
   font: 600 0.95rem/1.25 var(--disp);
   letter-spacing: 0.06em;
@@ -2155,7 +2159,8 @@ main.full .jp {
 /* Lock screen */
 
 #lk {
-  background: radial-gradient(ellipse 48% 38% at 14% 8%, rgba(122, 92, 255, 0.24), transparent 70%),
+  background:
+    radial-gradient(ellipse 48% 38% at 14% 8%, rgba(122, 92, 255, 0.24), transparent 70%),
     radial-gradient(ellipse 42% 34% at 90% 18%, rgba(40, 170, 255, 0.17), transparent 70%),
     radial-gradient(
       ellipse 125% 70% at 62% 142%,

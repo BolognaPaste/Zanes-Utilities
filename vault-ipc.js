@@ -324,7 +324,7 @@ function register(ipcMain, getWin, { dialog }) {
             tick({ t: 'p', name: f.name, done, total: Math.max(total, 1) });
           }
         } else {
-          for (let c = 0; c < len; ) {
+          for (let c = 0; c < len;) {
             const n = Math.min(buf.length, len - c);
             const b = await readFull(src, n, f.off + c);
             await writeAll(out, b, pos + c);

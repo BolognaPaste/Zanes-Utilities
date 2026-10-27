@@ -278,7 +278,7 @@ function register(ipcMain, getWin, { dialog }) {
             for (let pass = 0; pass < PASSES.length; pass++) {
               const pat = PASSES[pass];
               if (pat !== 'rand') buf.fill(pat);
-              for (let pos = 0; pos < f.size; ) {
+              for (let pos = 0; pos < f.size;) {
                 if (stop) throw Object.assign(new Error('stopped'), { stopped: true });
                 const n = Math.min(buf.length, f.size - pos);
                 if (pat === 'rand') crypto.randomFillSync(buf, 0, n);

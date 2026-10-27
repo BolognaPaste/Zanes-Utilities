@@ -106,7 +106,7 @@ const AD_HOSTS = [
 ];
 const AD_SET = new Set(AD_HOSTS);
 const isAdHost = h => {
-  for (let x = h; x; ) {
+  for (let x = h; x;) {
     if (AD_SET.has(x)) return true;
     const i = x.indexOf('.');
     x = i < 0 ? '' : x.slice(i + 1);
