@@ -20,3 +20,14 @@ Changed
 - `package.json` `build.files` now includes `logger.js` and `diagnostics.js`.
 - Small `_test` export seams added to `lock-ipc`, `shred-ipc`, `vault-ipc`, `vendor-sources` and `optimizer-ipc`. They add exports only; no logic changed.
 - `main.js` now records startup timings and module load times and writes them to the local log. It logs uncaught errors with the non-intrusive `uncaughtExceptionMonitor` event, so crash behaviour is unchanged.
+
+### Theme, build and startup fixes
+
+Changed
+- New starship-bridge theme (`cyber.css`, `cyber.js`) layered over the original styles.
+
+Fixed
+- App icons moved to `build/`, where `main.js`, the FMHY pop-out window and `package.json` look for them. The window had no icon and packaging pointed at missing files.
+- The shredder's metadata helper moved to `ps/shred-meta.ps1`, where `shred-ipc.js` reads it. Before, it never started, so file attributes, hidden streams and creation dates were left as they were.
+- `npm run build` no longer rebuilds native modules (`npmRebuild: false`). The only ones are ssh2's optional add-ons, which need a C++ toolchain and fall back to JavaScript.
+- The main window stays hidden until its first paint and uses the theme background, so it no longer flashes at startup.

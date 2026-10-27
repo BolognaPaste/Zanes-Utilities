@@ -20,6 +20,7 @@
   },
   "build": {
     "appId": "com.zane.utilities",
+    "npmRebuild": false,
     "electronLanguages": [
       "en-US"
     ],
