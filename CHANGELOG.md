@@ -9,7 +9,7 @@ All notable changes to Zane's Utilities. Format follows [Keep a Changelog](https
 Added
 
 - Git history with an untouched import of v1.0.0 as the first commit (QA-1).
-- README, CHANGELOG, LICENSE (placeholder), THIRD_PARTY_NOTICES (draft), EditorConfig, Prettier, ESLint flat config, tsconfig for type-checking the new modules (QA-1).
+- README, CHANGELOG, LICENSE, THIRD_PARTY_NOTICES (draft), EditorConfig, Prettier, ESLint flat config, tsconfig for type-checking the new modules (QA-1).
 - 66 characterization tests in `test/unit` locking current behaviour of: crash dump parser and rule base, INI editor, driver version compare, ChatHub, vault (full round trip, tamper detection), shredder path guard, app-lock throttling, SFTP path helpers, logger and diagnostics (QA-2).
 - Playwright for Electron smoke tests: launch, open every tool, lock and unlock, delete all data, security baseline, performance recording (QA-3).
 - `npm run baseline` and a performance recording test for cold start, memory and PowerShell spawn cost (QA-4).
@@ -35,3 +35,9 @@ Fixed
 - The shredder's metadata helper moved to `ps/shred-meta.ps1`, where `shred-ipc.js` reads it. Before, it never started, so file attributes, hidden streams and creation dates were left as they were.
 - `npm run build` no longer rebuilds native modules (`npmRebuild: false`). The only ones are ssh2's optional add-ons, which need a C++ toolchain and fall back to JavaScript.
 - The main window stays hidden until its first paint and uses the theme background, so it no longer flashes at startup.
+
+### Licence
+
+Changed
+
+- Licensed under the GNU General Public License v3.0 or later (`GPL-3.0-or-later`). `LICENSE` holds the full GPL v3 text and `package.json` declares it. Before, `LICENSE` was a placeholder and `package.json` said `UNLICENSED`.

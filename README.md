@@ -44,3 +44,8 @@ A button for it arrives with the new Settings page in Phase 1.
 - `keystore.js`, `secure-store.js`, `secure-ls.js`: encrypted state at rest.
 - `ps/`: PowerShell scripts for system queries.
 - `test/unit`: characterization tests. `tests/e2e`: Electron smoke tests. `scripts/`: baseline and binary hash tools.
+
+## Licence
+
+GNU General Public License v3.0 or later (`GPL-3.0-or-later`). The full text is in `LICENSE`; bundled third-party components are listed in
+`THIRD_PARTY_NOTICES.md`.
