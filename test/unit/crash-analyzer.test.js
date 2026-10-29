@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { load } = require('../helpers/load-browser-script');
 const dump = require('../helpers/minidump');
 
-const ctx = load('app.js');
+const ctx = load('crash-core.js', { TextDecoder });
 // Values created inside the vm sandbox have a different Array prototype; compare plain copies.
 const plain = x => JSON.parse(JSON.stringify(x, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
@@ -103,4 +103,31 @@ test('anText: very long lines are clipped and an empty file yields no findings',
   assert.deepEqual(plain(ctx.anText('e.log', '').findings), []);
   const r = ctx.anText('long.log', 'x'.repeat(10000) + ' bad_alloc');
   assert.equal(r.findings.length, 0, 'text beyond the 4000-char clip is not scanned');
+});
+
+// scanFile is what the crash worker runs on each chosen file.
+test('scanFile: a minidump is analysed as a dump', async () => {
+  const buf = dump.build({ mods: [{ name: 'D:\\Game\\game.exe', base: 0x7ff600000000n, size: 0x100000 }] });
+  const r = await ctx.scanFile(new File([buf], 'crash.dmp'));
+  assert.equal(r.name, 'crash.dmp');
+  assert.equal(r.findings[0].t, 'Access violation');
+  assert.equal(r.mods.length, 1);
+});
+
+test('scanFile: UTF-8 and UTF-16 logs are scanned as text', async () => {
+  const text = 'start\nEXCEPTION_ACCESS_VIOLATION reading 0x0';
+  const utf8 = await ctx.scanFile(new File([text], 'game.log'));
+  assert.ok(utf8.findings.some(f => f.t === 'Memory access violation'));
+  const utf16 = await ctx.scanFile(new File([Buffer.from([0xff, 0xfe]), Buffer.from(text, 'utf16le')], 'wide.log'));
+  assert.ok(utf16.findings.some(f => f.t === 'Memory access violation'));
+});
+
+test('scanFile: XML comes back as text for the page, kernel dumps and other binaries get a message', async () => {
+  const xml = await ctx.scanFile(new File(['\uFEFF<?xml version="1.0"?><Root/>'], 'report.xml'));
+  assert.equal(xml.name, 'report.xml');
+  assert.match(xml.xml, /<Root\/>/);
+  const kernel = await ctx.scanFile(new File(['PAGEDU64', Buffer.alloc(64)], 'MEMORY.DMP'));
+  assert.equal(kernel.findings[0].t, 'Windows kernel (blue screen) dump');
+  const binary = await ctx.scanFile(new File([Buffer.alloc(64)], 'data.bin'));
+  assert.match(binary.err, /binary file in a format this tool does not recognize/);
 });

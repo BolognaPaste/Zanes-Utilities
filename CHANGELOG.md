@@ -41,3 +41,10 @@ Fixed
 Changed
 
 - Licensed under the GNU General Public License v3.0 or later (`GPL-3.0-or-later`). `LICENSE` holds the full GPL v3 text and `package.json` declares it. Before, `LICENSE` was a placeholder and `package.json` said `UNLICENSED`.
+
+### Heavy work on worker threads
+
+Changed
+
+- The ad blocker parses its filter lists on a worker thread (`adblock-worker.js`). Before, the parse froze the whole app for 2-4 seconds the first time ad blocking was used and at every weekly list refresh; the main process now stalls for well under 0.1 s. The build itself takes about a second longer in the background.
+- The crash analyzer reads and scans files on a Web Worker (`crash-worker.js`), using the analyzer code moved unchanged from `app.js` into `crash-core.js`. A 25 MB log used to freeze the window for about 0.75 s; it now stays responsive. If a worker cannot start, the scan runs on the page as before.

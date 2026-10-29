@@ -5,6 +5,7 @@ const node = {
   process: 'readonly',
   __dirname: 'readonly',
   Buffer: 'readonly',
+  File: 'readonly',
   console: 'readonly',
   setTimeout: 'readonly',
   clearTimeout: 'readonly',
@@ -46,6 +47,7 @@ const browser = {
   Terminal: 'readonly',
   FitAddon: 'readonly',
   MutationObserver: 'readonly',
+  Worker: 'readonly',
   ResizeObserver: 'readonly',
   DOMParser: 'readonly',
   Image: 'readonly',
@@ -104,10 +106,12 @@ const page = Object.fromEntries(
     'phPause'
   ].map(n => [n, 'readonly'])
 );
-// Top-level names app.js declares. Scripts loaded after it share them through the page's global scope.
-const fromApp = Object.fromEntries(
-  ['$', 'esc', 'toast', 'closeMenu', 'closeDlg', 'base', 'anText', 'E', 'M', 'T'].map(n => [n, 'readonly'])
-);
+// Top-level names a renderer script declares. Scripts loaded after it share them through the page's global scope.
+const sharedBy = {
+  'app.js': ['$', 'esc', 'toast', 'closeMenu', 'closeDlg'],
+  'crash-core.js': ['E', 'M', 'T', 'base', 'anText', 'scanFile']
+};
+const readonly = names => Object.fromEntries(names.map(n => [n, 'readonly']));
 const nodeFiles = [
   'main.js',
   'preload.js',
@@ -121,6 +125,7 @@ const nodeFiles = [
   'vendor-sources.js',
   'ssh-sftp.js',
   'adblock.js',
+  'adblock-worker.js',
   'logger.js',
   'diagnostics.js',
   'eslint.config.js',
@@ -160,9 +165,15 @@ module.exports = [
   },
   { files: ['**/*.js'], languageOptions: { ecmaVersion: 2023, sourceType: 'script' }, rules },
   // Globals merge across matching blocks, so browser names stay out of Node files (where `const crypto = require('crypto')`
-  // would otherwise count as a redeclaration), and app.js does not get its own names as globals.
+  // would otherwise count as a redeclaration), and a script does not get its own names as globals.
   { files: ['**/*.js'], ignores: nodeFiles, languageOptions: { globals: { ...browser, ...page } } },
-  { files: ['**/*.js'], ignores: [...nodeFiles, 'app.js'], languageOptions: { globals: fromApp } },
+  ...Object.entries(sharedBy).map(([file, names]) => ({
+    files: ['**/*.js'],
+    ignores: [...nodeFiles, file],
+    languageOptions: { globals: readonly(names) }
+  })),
+  // crash-worker.js runs as a Web Worker.
+  { files: ['crash-worker.js'], languageOptions: { globals: { self: 'readonly' } } },
   { files: nodeFiles, languageOptions: { globals: node } },
   // Callbacks passed to page.evaluate run in the app window.
   { files: ['tests/e2e/**/*.js'], languageOptions: { globals: browser } }

@@ -7,6 +7,7 @@ cloudflared/
 mumble/
 # Legacy renderer files are compact on purpose and are replaced in Phase 1.
 app.js
+crash-core.js
 *-ui.js
 xml-deep.js
 efs-shim.js

@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs/promises');
 const crypto = require('crypto');
+const { Worker } = require('worker_threads');
 
 const LISTS = [
   { name: 'uBlock filters', url: 'https://ublockorigin.github.io/uAssets/filters/filters.min.txt' },
@@ -97,6 +98,34 @@ function listFetcher(app, stats, fetcher) {
   };
 }
 
+// The core package @ghostery/adblocker-electron itself loads, so the parser and the blocker always match.
+const corePath = () => require.resolve('@ghostery/adblocker', { paths: [path.dirname(require.resolve('@ghostery/adblocker-electron'))] });
+
+// Parsing ~6 MB of filter lists takes 2-4 seconds of CPU. It runs on a worker thread so the main process (the window,
+// menus and every other tool) keeps responding.
+function parseOffThread(text, config, resources) {
+  return new Promise((resolve, reject) => {
+    const w = new Worker(path.join(__dirname, 'adblock-worker.js'), { workerData: { core: corePath(), text, config, resources } });
+    w.once('message', resolve);
+    w.once('error', reject);
+    w.once('exit', code => reject(new Error('The filter list parser stopped early (code ' + code + ').')));
+  });
+}
+
+// The same steps as ElectronBlocker.fromLists (use the saved engine if it reads back, otherwise download, parse and
+// save it), with the parse moved to a worker thread.
+async function fromLists(Blocker, fetcher, config, caching) {
+  try {
+    return Blocker.deserialize(await caching.read(caching.path));
+  } catch {}
+  const { fetchLists, fetchResources } = require(corePath());
+  const [lists, resources] = await Promise.all([fetchLists(fetcher, URLS), fetchResources(fetcher)]);
+  const serialized = await parseOffThread(lists.join('\n'), config, resources);
+  const engine = Blocker.deserialize(serialized);
+  await caching.write(caching.path, serialized);
+  return engine;
+}
+
 async function buildEngine(app, force, info, fetcher) {
   let ElectronBlocker;
   try {
@@ -135,7 +164,7 @@ async function buildEngine(app, force, info, fetcher) {
   }
   let engine;
   try {
-    engine = await ElectronBlocker.fromLists(lists, URLS, config, caching);
+    engine = await fromLists(ElectronBlocker, lists, config, caching);
     if (stats.fetched + stats.saved === 0 && stats.missing > 0) {
       await waitForFile();
       await fs.rm(file, { force: true });
@@ -146,7 +175,7 @@ async function buildEngine(app, force, info, fetcher) {
   } catch (err) {
     if (stale && (await exists(bak))) {
       await fs.copyFile(bak, file).catch(() => {});
-      engine = await ElectronBlocker.fromLists(lists, URLS, config, caching);
+      engine = await fromLists(ElectronBlocker, lists, config, caching);
       info.source = 'cache';
       restored = true;
       info.warning = 'Could not download fresh lists (' + String((err && err.message) || err) + '), so the saved copy is being used.';
@@ -291,4 +320,4 @@ function create(app, ses, onChange) {
   };
 }
 
-module.exports = { create, LISTS, _listFetcher: listFetcher };
+module.exports = { create, LISTS, _listFetcher: listFetcher, _fromLists: fromLists };
