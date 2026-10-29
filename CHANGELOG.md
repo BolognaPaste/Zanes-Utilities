@@ -4,6 +4,10 @@ All notable changes to Zane's Utilities. Format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-10-28
+
+Follows the V2.6.1 release.
+
 ### Phase 0: baseline and safety net (no user-visible change)
 
 Added
